@@ -1,0 +1,7 @@
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+__pycache__/
+.venv/
+ingestion/ValeursFoncieres-2025.txt
