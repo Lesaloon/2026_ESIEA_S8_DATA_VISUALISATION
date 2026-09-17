@@ -5,3 +5,4 @@
 __pycache__/
 .venv/
 ingestion/ValeursFoncieres-2025.txt
+visualisation/*_correlations.png
