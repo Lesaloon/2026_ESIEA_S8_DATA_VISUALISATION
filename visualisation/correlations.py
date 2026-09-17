@@ -16,7 +16,7 @@ DATABASE = BASE + '/../ingestion/paris.sqlite'
 def load_data():
     with sqlite3.connect(f'file:{DATABASE}?mode=ro', uri=True) as db:
         housing = pd.read_sql_query('''
-            SELECT valeur_fonciere AS "Sale price",
+            SELECT arrondissement, valeur_fonciere AS "Sale price",
                    surface_reelle_bati AS "Built area",
                    NULLIF(nombre_pieces_principales, 0) AS "Rooms",
                    nombre_de_lots AS "Lots",
@@ -26,7 +26,7 @@ def load_data():
               AND valeur_fonciere > 0 AND surface_reelle_bati > 0
         ''', db)
         airbnb = pd.read_sql_query('''
-            SELECT price_quote_price_per_night AS "Nightly price",
+            SELECT arrondissement, price_quote_price_per_night AS "Nightly price",
                    accommodates AS "Guests",
                    bedrooms AS "Bedrooms",
                    beds AS "Beds",
@@ -46,7 +46,7 @@ def load_data():
 def plot_correlations(data, price, title, filename, note):
     # Spearman compares ranks: less sensitive to the very large price outliers.
     # Missing values are excluded per pair, never filled with zeros.
-    correlations = data.corr(method='spearman', min_periods=30)
+    correlations = data.drop(columns='arrondissement').corr(method='spearman', min_periods=30)
     ranking = correlations[price].drop(price).dropna()
     ranking = ranking.loc[ranking.abs().sort_values().index]
 
