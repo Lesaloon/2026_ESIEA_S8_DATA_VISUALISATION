@@ -59,7 +59,7 @@ def load_data():
 def plot_correlations(data, price, title, filename, note):
     # Spearman compares ranks: less sensitive to the very large price outliers.
     # Missing values are excluded per pair, never filled with zeros.
-    correlations = data.drop(columns='arrondissement').corr(method='spearman', min_periods=30)
+    correlations = data.drop(columns='arrondissement').corr(method='spearman', min_periods=20)
     ranking = correlations[price].drop(price).dropna()
     ranking = ranking.loc[ranking.abs().sort_values().index]
 
@@ -108,7 +108,7 @@ def main():
                       'Ordinary apartment/house sales. DVF prices may cover multiple properties and repeat across rows.')
     plot_correlations(airbnb, 'Nightly price', 'Paris Airbnb · June 2026',
                       'airbnb_correlations.png',
-                      'Positive EUR nightly quotes only. Missing values excluded per pair; minimum 30 paired rows.')
+                      'Positive EUR nightly quotes only. Missing values excluded per pair; minimum 20 paired rows.')
 
 
 if __name__ == '__main__':

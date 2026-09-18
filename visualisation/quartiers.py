@@ -66,10 +66,12 @@ def trends_by_area(data, feature, price, names, title, filename, discrete=False,
         ax.tick_params(labelbottom=True, labelleft=True, labelsize=8)
     fig.suptitle(title, fontsize=17)
     labels = {'Built area': 'Surface bâtie (m²)', 'Guests': 'Capacité d’accueil (personnes)',
+              'Bedrooms': 'Nombre de chambres',
               'Minimum nights': 'Séjour minimum (nuits, échelle logarithmique)'}
     fig.supxlabel(labels[feature], y=0.055)
     fig.supylabel('Prix de vente médian (k€)' if scale == 1000 else 'Prix par nuit médian (€)')
-    grouping = 'Un point par capacité d’accueil.' if discrete else 'Un point par tranche de quantiles, propre à chaque arrondissement.'
+    grouping = (f'Un point par valeur de « {labels[feature]} ».' if discrete
+                else 'Un point par tranche de quantiles, propre à chaque arrondissement.')
     fig.text(0.5, 0.012, grouping + ' Chiffres = effectifs ; points de moins de 30 lignes masqués.\n'
              'Segments rouges = baisse de médiane, pas preuve d’une corrélation négative après un seuil.\n'
              'Échelles propres à chaque panneau. DVF : prix parfois répétés pour plusieurs biens. Airbnb : devis EUR positifs.',
@@ -91,6 +93,8 @@ def main():
                    'housing_surface_quartiers.png', scale=1000)
     trends_by_area(airbnb, 'Guests', 'Nightly price', names, 'Airbnb · Capacité d’accueil et prix par arrondissement',
                    'airbnb_capacite_quartiers.png', discrete=True)
+    trends_by_area(airbnb, 'Bedrooms', 'Nightly price', names, 'Airbnb · Nombre de chambres et prix par arrondissement',
+                   'airbnb_chambres_quartiers.png', discrete=True)
     trends_by_area(airbnb, 'Minimum nights', 'Nightly price', names, 'Airbnb · Séjour minimum (nuits) et prix par arrondissement',
                    'airbnb_sejour_quartiers.png')
 
