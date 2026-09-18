@@ -1,13 +1,27 @@
 """Paris data pipeline: ingest -> clean -> parse types -> SQLite."""
 
+import os
 import re
 import sqlite3
+from pathlib import Path
 
+from dotenv import load_dotenv
 import pandas as pd
 
 
-BASE = __file__.rsplit('/', 1)[0]
-DATABASE = BASE + '/paris.sqlite'
+# Paths come from the project-root .env; relative paths are from the project root.
+ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / '.env')
+
+
+def env_path(name, default):
+    path = Path(os.getenv(name, default))
+    return (path if path.is_absolute() else ROOT / path).as_posix()
+
+
+DVF_FILE = env_path('DVF_FILE', 'ingestion/ValeursFoncieres-2025.txt.gz')
+AIRBNB_FILE = env_path('AIRBNB_FILE', 'ingestion/listing.csv.gz')
+DATABASE = env_path('DATABASE', 'ingestion/paris.sqlite')
 ARRONDISSEMENTS = [
     'Louvre', 'Bourse', 'Temple', 'Hôtel-de-Ville', 'Panthéon',
     'Luxembourg', 'Palais-Bourbon', 'Élysée', 'Opéra', 'Entrepôt',
@@ -41,12 +55,12 @@ def ingest():
     # Read as strings first: IDs must never pass through floating-point numbers.
     # Filter the national file in chunks to keep memory use reasonable.
     paris = []
-    for chunk in pd.read_csv(BASE + '/ValeursFoncieres-2025.txt.gz', sep='|',
+    for chunk in pd.read_csv(DVF_FILE, sep='|',
                              dtype='string', keep_default_na=False, chunksize=100_000):
         chunk['source_row'] = chunk.index + 1
         paris.append(chunk.loc[chunk['Code departement'].str.strip() == '75'])
     sales = pd.concat(paris, ignore_index=True)
-    airbnb = pd.read_csv(BASE + '/listing.csv.gz', dtype='string', keep_default_na=False)
+    airbnb = pd.read_csv(AIRBNB_FILE, dtype='string', keep_default_na=False)
     airbnb['source_row'] = airbnb.index + 1
     return sales, airbnb
 

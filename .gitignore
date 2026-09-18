@@ -7,3 +7,5 @@ __pycache__/
 ingestion/ValeursFoncieres-2025.txt
 visualisation/*_correlations.png
 visualisation/*_quartiers.png
+.env
+.idea

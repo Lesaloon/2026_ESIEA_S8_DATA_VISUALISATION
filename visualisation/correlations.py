@@ -1,7 +1,10 @@
 """Two simple price-correlation charts from the Paris SQLite database."""
 
+import os
 import sqlite3
+from pathlib import Path
 
+from dotenv import load_dotenv
 import matplotlib
 matplotlib.use('Agg')  # Save images without requiring a desktop window.
 import matplotlib.pyplot as plt
@@ -9,8 +12,18 @@ import pandas as pd
 import seaborn as sns
 
 
-BASE = __file__.rsplit('/', 1)[0]
-DATABASE = BASE + '/../ingestion/paris.sqlite'
+# Paths come from the project-root .env; relative paths are from the project root.
+ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / '.env')
+
+
+def env_path(name, default):
+    path = Path(os.getenv(name, default))
+    return (path if path.is_absolute() else ROOT / path).as_posix()
+
+
+DATABASE = env_path('DATABASE', 'ingestion/paris.sqlite')
+BASE = env_path('OUTPUT_DIR', 'visualisation')  # Where the PNG charts are saved.
 
 
 def load_data():
