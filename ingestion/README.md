@@ -4,11 +4,13 @@
 .venv/bin/python ingestion/build_database.py
 ```
 
-Requires pandas and SQLite with JSON support. The script imports only `re`,
-`sqlite3`, and `pandas`. No command-line arguments: input/output paths are constants
-at the top of the script, relative to its location.
+Requires pandas, NumPy, python-dotenv and SQLite with JSON support (see
+`requirements.txt`). Input/output paths use `DVF_FILE`, `AIRBNB_FILE`, and
+`DATABASE` from the project-root `.env`, with defaults under `ingestion/`.
+Relative paths are resolved from the project root.
 
-**Pipeline:** `ingest()` → `clean()` → `parse_types()` → `write_sqlite()`.
+**Pipeline:** `ingest()` → `clean()` → `parse_types()` →
+`score_monument_proximity()` → `write_sqlite()`.
 The national DVF file (`ValeursFoncieres-2025.txt.gz`) is read directly from gzip
 into pandas in chunks, retaining department 75. No manual extraction is needed.
 Whitespace and empty values are cleaned, types parsed explicitly, and pandas
@@ -23,6 +25,7 @@ Whitespace and empty values are cleaned, types parsed explicitly, and pandas
 | `airbnb_listings` | All 77,679 listings in the June 2026 Paris snapshot, preserving all original fields. |
 | `registered_airbnb_listings` (view) | 53,758 listings with a declared registration-shaped licence: five digits followed by eight alphanumeric characters. This is **not official verification**. |
 | `arrondissements` | Arrondissement numbers 1–20 and names, for joining/labeling charts. |
+| `monuments` | Reference sites and source attributes from `monuments_paris_importance.json`. |
 
 Both main tables contain `arrondissement` and `source_row` (one-based input data
 record, excluding header). Airbnb IDs have a unique index. Indexes also support
@@ -51,6 +54,28 @@ count rows as distinct sales without addressing this source granularity.
 
 Coverage is limited to the supplied files: DVF dates run from 2025-01-02 through
 2025-12-31, whereas Airbnb is a June 2026 snapshot, not a complete official registry.
+
+## Tourist proximity score
+
+Each Airbnb listing receives three additional columns, also exposed through
+`registered_airbnb_listings`:
+
+- `nearest_monument_name`: closest site in the reference catalogue.
+- `nearest_monument_distance_km`: Haversine distance, using Earth's mean radius
+  of 6,371.0088 km; this is a straight-line distance, not a walking route.
+- `tourist_proximity_score`: score from 0 to 100, computed from the three nearest
+  sites at distances `d1 <= d2 <= d3` in kilometres:
+
+  `100 * (0.5 * 2**(-d1) + 0.3 * 2**(-d2) + 0.2 * 2**(-d3))`
+
+Each additional kilometre halves a site's contribution. Distances of 0.2, 0.5,
+and 0.8 km yield about 76.23. Scores are stored without rounding. Listings with
+missing or out-of-range coordinates retain NULL in all three derived columns.
+
+The fixed input catalogue determines which sites count, including nearby sites
+listed separately. Its visitor counts and importance weights are preserved in
+`monuments` but do not enter this distance-only score. Changing the catalogue
+requires regenerating the scores; compare scores using the same catalogue.
 
 ## Next step: use in pandas
 

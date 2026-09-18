@@ -1,11 +1,13 @@
 """Paris data pipeline: ingest -> clean -> parse types -> SQLite."""
 
+import json
 import os
 import re
 import sqlite3
 from pathlib import Path
 
 from dotenv import load_dotenv
+import numpy as np
 import pandas as pd
 
 
@@ -22,6 +24,7 @@ def env_path(name, default):
 DVF_FILE = env_path('DVF_FILE', 'ingestion/ValeursFoncieres-2025.txt.gz')
 AIRBNB_FILE = env_path('AIRBNB_FILE', 'ingestion/listing.csv.gz')
 DATABASE = env_path('DATABASE', 'ingestion/paris.sqlite')
+MONUMENTS_FILE = ROOT / 'ingestion/monuments_paris_importance.json'
 ARRONDISSEMENTS = [
     'Louvre', 'Bourse', 'Temple', 'Hôtel-de-Ville', 'Panthéon',
     'Luxembourg', 'Palais-Bourbon', 'Élysée', 'Opéra', 'Entrepôt',
@@ -124,7 +127,45 @@ def parse_types(sales, airbnb):
     return sales, airbnb
 
 
-def write_sqlite(sales, airbnb):
+def score_monument_proximity(airbnb):
+    """Score the three nearest catalogue sites using straight-line distances."""
+    with MONUMENTS_FILE.open(encoding='utf-8') as source:
+        monuments = pd.DataFrame(json.load(source)['monuments'])
+    if (len(monuments) < 3 or monuments['nom'].isna().any()
+            or monuments['nom'].duplicated().any()
+            or not monuments['lat'].between(-90, 90).all()
+            or not monuments['long'].between(-180, 180).all()):
+        raise ValueError('Expected at least three distinct monuments with valid coordinates')
+
+    airbnb = airbnb.copy()
+    airbnb['nearest_monument_name'] = pd.Series(pd.NA, index=airbnb.index, dtype='string')
+    for column in ['nearest_monument_distance_km', 'tourist_proximity_score']:
+        airbnb[column] = pd.Series(pd.NA, index=airbnb.index, dtype='Float64')
+    valid = (airbnb['latitude'].between(-90, 90)
+             & airbnb['longitude'].between(-180, 180)).fillna(False)
+    indices = airbnb.index[valid]
+    monument_lat = np.radians(monuments['lat'].to_numpy(dtype=float))
+    monument_lon = np.radians(monuments['long'].to_numpy(dtype=float))
+    names = monuments['nom'].to_numpy()
+    # Bound memory usage rather than allocating the full listing/site matrix.
+    for start in range(0, len(indices), 5000):
+        batch = indices[start:start + 5000]
+        lat = np.radians(airbnb.loc[batch, 'latitude'].to_numpy(dtype=float))[:, None]
+        lon = np.radians(airbnb.loc[batch, 'longitude'].to_numpy(dtype=float))[:, None]
+        haversine = (np.sin((monument_lat - lat) / 2) ** 2
+                     + np.cos(lat) * np.cos(monument_lat)
+                     * np.sin((monument_lon - lon) / 2) ** 2)
+        distances = 6371.0088 * 2 * np.arcsin(np.sqrt(np.clip(haversine, 0, 1)))
+        nearest = np.argsort(distances, axis=1, kind='stable')[:, :3]
+        closest = np.take_along_axis(distances, nearest, axis=1)
+        airbnb.loc[batch, 'nearest_monument_name'] = names[nearest[:, 0]]
+        airbnb.loc[batch, 'nearest_monument_distance_km'] = closest[:, 0]
+        airbnb.loc[batch, 'tourist_proximity_score'] = (
+            100 * (np.exp2(-closest) @ np.array([0.5, 0.3, 0.2])))
+    return airbnb, monuments
+
+
+def write_sqlite(sales, airbnb, monuments):
     with sqlite3.connect(DATABASE) as connection:
         # Remove views first so reruns also work after schema changes.
         connection.execute('DROP VIEW IF EXISTS paris_housing_sales')
@@ -150,6 +191,7 @@ def write_sqlite(sales, airbnb):
         connection.execute("UPDATE airbnb_listings SET quote_currency = json_extract(price_quote_raw, '$.quote.currency')")
         pd.DataFrame({'arrondissement': range(1, 21), 'name': ARRONDISSEMENTS}).to_sql(
             'arrondissements', connection, if_exists='replace', index=False)
+        monuments.to_sql('monuments', connection, if_exists='replace', index=False)
         connection.executescript('''
             DROP TABLE IF EXISTS ingestion_metadata;
             CREATE UNIQUE INDEX sales_source_row ON paris_property_sales(source_row);
@@ -173,7 +215,8 @@ def main():
     sales, airbnb = ingest()
     sales, airbnb = clean(sales, airbnb)
     sales, airbnb = parse_types(sales, airbnb)
-    write_sqlite(sales, airbnb)
+    airbnb, monuments = score_monument_proximity(airbnb)
+    write_sqlite(sales, airbnb, monuments)
 
 
 if __name__ == '__main__':
