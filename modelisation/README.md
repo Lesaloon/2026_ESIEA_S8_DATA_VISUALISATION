@@ -34,3 +34,28 @@ high-season quotes, review-based occupancy estimates, and Paris short-term renta
 rules are not applied.
 
 `regression.ipynb` is the first, notebook version of the same analysis (returns in %).
+
+## Monuments against arrondissements
+
+```sh
+.venv/bin/python modelisation/monuments.py      # Linux
+.venv/Scripts/python modelisation/monuments.py  # Windows
+```
+
+Tests whether monument proximity (`tourist_proximity_score` and
+`nearest_monument_distance_km`, written by `ingestion/build_database.py`) explains
+prices that arrondissements miss. Rebuild the database first if those columns are missing.
+
+- Compares location variables by 5-fold cross-validation, for both targets: none,
+  distance to the centre, monument score, monument score weighted by visits,
+  arrondissement (current model), and arrondissement plus centre or monument score.
+- Checks the current model's out-of-fold errors: nearest against farthest quarter of
+  listings from a monument within each arrondissement, with a sign test, repeated
+  with distance to the centre in the model to rule out a plain centrality effect.
+
+Charts saved in this folder:
+
+- `carte_erreurs.png`: map of the current model's price errors, with the monuments.
+- `erreur_selon_distance.png`: median error by distance to the nearest monument.
+- `proche_loin_monument.png`: nearest against farthest quarter, per arrondissement.
+- `comparaison_modeles.png`: mean error and R² of each set of location variables.
