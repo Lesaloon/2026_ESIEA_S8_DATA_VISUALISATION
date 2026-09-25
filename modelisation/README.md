@@ -59,3 +59,53 @@ Charts saved in this folder:
 - `erreur_selon_distance.png`: median error by distance to the nearest monument.
 - `proche_loin_monument.png`: nearest against farthest quarter, per arrondissement.
 - `comparaison_modeles.png`: mean error and R² of each set of location variables.
+
+## Residual analysis of the price model
+
+```sh
+.venv/bin/python modelisation/residus.py      # Linux
+.venv/Scripts/python modelisation/residus.py  # Windows
+```
+
+Every listing is predicted by the current price model (size, type, arrondissement)
+fitted without it (5-fold cross-validation). The terminal prints:
+
+- error figures in euros per night, against a naive baseline (median price for all):
+  R², mean and median absolute error, RMSE, mean bias, listings within 25 € and 50 €,
+  and the Duan factor that corrects the median-vs-mean bias of a log model;
+- errors by predicted price, capacity, arrondissement, property type, and
+  arrondissement × bedrooms (interactions the additive model ignores);
+- how monument proximity follows the errors, within each arrondissement;
+- the ten most under- and over-estimated listings, with their links.
+
+`metrics()` is the yardstick for the next models. Charts saved in this folder:
+
+- `residus_distribution.png`: distribution of the errors.
+- `residus_par_segment.png`: median error and spread by predicted price and capacity.
+- `residus_arrondissement_chambres.png`: median error by arrondissement and bedrooms.
+
+## Model comparison
+
+```sh
+.venv/bin/python modelisation/comparaison.py      # Linux
+.venv/Scripts/python modelisation/comparaison.py  # Windows
+```
+
+Compares the current price model with an enriched linear model (capacity 1 to 8+
+and bedrooms studio to 4+ as categories, monument score, with and without Duan's
+correction) and three tree models given the same information, sizes as numbers:
+
+- a decision tree (depth 12, at least 20 listings per leaf: deeper stops improving);
+- a random forest (at least 5 listings per leaf: fully grown trees learn the noise);
+- gradient boosting (`HistGradientBoostingRegressor`, default settings, arrondissement
+  and property type as native categories).
+
+Same listings, same 5 folds and same `metrics()` as `residus.py`. The terminal prints
+the error figures, the mean error of each fold and which model wins it, the median
+error by capacity and bedrooms, and the enriched linear model's effects in euros
+around a reference flat. Charts saved in this folder:
+
+- `comparaison_erreurs.png`: error figures of each model.
+- `comparaison_par_taille.png`: median error by capacity and bedrooms (current model,
+  enriched linear, gradient boosting).
+- `arbre_decision.png`: the first three levels of the decision tree, prices in euros.
