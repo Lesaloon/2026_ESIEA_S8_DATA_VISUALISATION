@@ -266,6 +266,7 @@ def estimate(bundle, features, data, sales, names, listings):
     base = profiles.assign(bedrooms=list(TYPOLOGIES.values())).reset_index().merge(
         pd.DataFrame({'arrondissement': range(1, 21)}), how='cross')
     base['property_type'] = 'Entire rental unit'
+    base['minimum_nights'] = MINIMUM_NIGHTS  # Same minimum stay as the management scenarios.
     base['tourist_proximity_score'] = base['arrondissement'].map(
         data.groupby('arrondissement')['tourist_proximity_score'].median())
     base['prix_nuit'], base['prix_moyen'] = predict(bundle, base, features)

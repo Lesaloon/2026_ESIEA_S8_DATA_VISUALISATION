@@ -41,7 +41,12 @@ def folder_features(folder):
     return module.features
 
 
-LINEAR, BOOSTING = folder_features('modele_lineaire_enrichi'), folder_features('modele_gradient_boosting')
+def step_4a(features):
+    """The enriched linear inputs as compared at step 4a, before the minimum stay was added to the model."""
+    return lambda frame, reference: features(frame, reference).drop(columns='minimum_nights', errors='ignore')
+
+
+LINEAR, BOOSTING = step_4a(folder_features('modele_lineaire_enrichi')), folder_features('modele_gradient_boosting')
 
 
 def load():

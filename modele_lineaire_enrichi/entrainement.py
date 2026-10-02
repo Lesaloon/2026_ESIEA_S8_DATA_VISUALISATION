@@ -1,7 +1,7 @@
 """Enriched linear model of the nightly price: train it and save it. No arguments.
 
-Capacity (1 to 8+) and bedrooms (studio to 4+) as categories, bathrooms, monument score,
-one-hot arrondissement and property type; learns the log of the price.
+Capacity (1 to 8+) and bedrooms (studio to 4+) as categories, bathrooms, monument score, minimum
+stay (log, capped at 7 nights), one-hot arrondissement and property type; learns the log of the price.
 The training, saving and charts are shared with modele_gradient_boosting/: modelisation/revenu.py.
 Also writes the price model with its range for the web app (MODEL_PATH, web/model.pkl by default).
 """
@@ -11,8 +11,12 @@ import pickle
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import FunctionTransformer
 
 FOLDER = Path(__file__).resolve().parent
 sys.path.append(str(FOLDER.parent / 'modelisation'))  # Shared pipeline and data preparation.
@@ -20,6 +24,8 @@ from revenu import RANGE, train
 
 
 NAME = 'Linéaire enrichi'
+# No listing has a longer minimum stay (quotes of at most 7 nights): longer stays count as 7.
+LONGEST_STAY = 7
 # Same setting as web/start.py; the .env file is already loaded by the shared pipeline.
 WEB_MODEL = Path(os.getenv('MODEL_PATH', 'web/model.pkl'))
 
@@ -27,15 +33,28 @@ WEB_MODEL = Path(os.getenv('MODEL_PATH', 'web/model.pkl'))
 def features(frame, reference):
     """Training drops the baselines (2 guests, 1 bedroom, 11th, classic flat); prediction reuses its columns.
 
-    Category names (capacity_8+, rooms_4+) match the dummy columns built by web/start.py.
+    Category names (capacity_8+, rooms_4+) match the dummy columns built by web/start.py, and the
+    minimum stay stays raw: the model itself caps it and takes its log, so the app can send it as is.
     """
     frame = frame.assign(capacity=frame['accommodates'].clip(upper=8).astype(int).astype(str).replace('8', '8+'),
                          rooms=frame['bedrooms'].clip(upper=4).astype(int).astype(str).replace('4', '4+'))
-    X = pd.get_dummies(frame[['bathrooms', 'tourist_proximity_score', 'capacity', 'rooms', 'arrondissement', 'property_type']],
+    X = pd.get_dummies(frame[['bathrooms', 'tourist_proximity_score', 'minimum_nights', 'capacity', 'rooms',
+                              'arrondissement', 'property_type']],
                        columns=['capacity', 'rooms', 'arrondissement', 'property_type'], dtype=int)
     if 'columns' not in reference:
         return X.drop(columns=['capacity_2', 'rooms_1', 'arrondissement_11', 'property_type_Entire rental unit'])
     return X.reindex(columns=reference['columns'], fill_value=0)
+
+
+def model():
+    """Minimum stay capped at 7 nights then logged, other columns as they are, then the linear regression.
+
+    Only scikit-learn and numpy pieces: the pickled model loads in web/start.py without this file.
+    """
+    stay = make_pipeline(FunctionTransformer(np.clip, kw_args={'a_min': 1, 'a_max': LONGEST_STAY}),
+                         FunctionTransformer(np.log))
+    return make_pipeline(ColumnTransformer([('sejour_minimum', stay, ['minimum_nights'])], remainder='passthrough'),
+                         LinearRegression())
 
 
 def export_for_web(bundle):
@@ -58,4 +77,4 @@ def export_for_web(bundle):
 
 
 if __name__ == '__main__':
-    export_for_web(train(NAME, LinearRegression, features, FOLDER))
+    export_for_web(train(NAME, model, features, FOLDER))

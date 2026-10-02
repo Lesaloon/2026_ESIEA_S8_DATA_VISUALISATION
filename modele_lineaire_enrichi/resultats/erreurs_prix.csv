@@ -1,2 +1,2 @@
 ,R² (log),erreur moyenne (€),erreur médiane (€),RMSE (€),biais moyen (€),à 25 € près,à 50 € près,annonces
-Linéaire enrichi,0.648,77,47,124,17,7873,14124,26920
+Linéaire enrichi,0.651,76,47,123,17,7915,14153,26920

@@ -43,10 +43,21 @@ chiffres de chaque test. Données : 26 920 logements entiers Airbnb actifs à Pa
 | 5g | | Linéaire enrichi | + surface + voisins | | 0,700 | 77 € | 46 € | 124 € | +16 € | 4 299 |
 | 5h | | Gradient boosting | rappel | | 0,648 | 82 € | 50 € | 131 € | +17 € | 4 067 |
 | 5i | | Gradient boosting | + surface + position | | 0,698 | 77 € | 46 € | 124 € | +16 € | 4 321 |
-| **App** | `modele_lineaire_enrichi/` → `web/model.pkl` | **Linéaire enrichi (4a)** | + fourchette par arrondissement (la moitié des logements comparables, de ×0,76–0,83 à ×1,17–1,28 le prix prévu) | 5 plis | 0,648 | 77 € | 47 € | 124 € | — | 14 124 / 26 920 |
+| 6a | Séjour minimum (`modelisation/sejour_minimum.py`) | Linéaire enrichi | rappel (4a) | 5 plis | 0,648 | 77 € | 47 € | 124 € | +17 € | 14 124 / 26 920 |
+| 6b | | Linéaire enrichi | + séjour minimum en nombre | | 0,651 | 76 € | 47 € | 123 € | +17 € | 14 160 |
+| 6c ✔ | | Linéaire enrichi | **+ séjour minimum en log** | | 0,651 | 76 € | 47 € | 123 € | +17 € | 14 153 |
+| 6d | | Linéaire enrichi | + séjour minimum en catégories (1, 2, 3, 4-6, 7) | | 0,651 | 76 € | 47 € | 123 € | +17 € | 14 160 |
+| 6e | | Gradient boosting | + séjour minimum en nombre | | 0,660 | 75 € | 46 € | 121 € | +16 € | 14 310 |
+| **App** | `modele_lineaire_enrichi/` → `web/model.pkl` | **Linéaire enrichi + séjour minimum (6c)** | séjour minimum en log, plafonné à 7 nuits dans le modèle ; + fourchette par arrondissement (la moitié des logements comparables) | 5 plis | 0,651 | 76 € | 47 € | 123 € | +17 € | 14 153 / 26 920 |
 
 Les lignes 5e à 5i portent sur un autre ensemble d'annonces (8 094 au lieu de 26 920) : elles se
 comparent entre elles, pas avec les autres lignes.
+
+Étape 6 : la durée du devis est égale au séjour minimum pour 20 438 annonces sur 26 920, et un séjour
+court coûte plus cher par nuit (prix médian : 246 € pour 1 nuit minimum, 223 € pour 2, 201 € pour 7).
+Les données s'arrêtent à 7 nuits (devis de 7 nuits au plus) : le modèle plafonne donc le séjour
+minimum à 7, et un séjour plus long donne le même prix qu'un séjour de 7 nuits. Exemple, T2 du 11e :
+175 € pour 1 nuit minimum, 167 € pour 2, 163 € pour 3, 155 € à partir de 7.
 
 ## 2. Revenu annuel
 
@@ -63,6 +74,7 @@ comparent entre elles, pas avec les autres lignes.
 | R9 | `modele_lineaire_enrichi/` | linéaire enrichi × modèle de nuits (R7) | 5 plis | 0,169 | 20,7 k€ | 14,3 k€ | −0,4 k€ |
 | R10 | `modele_gradient_boosting/` | boosting × modèle de nuits | 5 plis | 0,172 | 20,7 k€ | 14,3 k€ | −0,3 k€ |
 | R11 | `modelisation/precision.py` | R9, avec la validation plus stricte | 5 plis par hôte | 0,148 | 21,2 k€ | 14,7 k€ | −0,3 k€ |
+| R12 ✔ | `modele_lineaire_enrichi/` | modèle de l'appli (6c, avec séjour minimum) × modèle de nuits | 5 plis | 0,170 | 20,7 k€ | 14,3 k€ | −0,6 k€ |
 | Réf. | dossiers finaux | **vrai** prix × nuits prévues (le plafond atteignable) | 5 plis | 0,249 | 19,8 k€ | 14,3 k€ | −0,7 k€ |
 
 Ordre de grandeur : le revenu annuel réel est de 35,5 k€ en moyenne et de 23,1 k€ en médiane.
@@ -75,8 +87,9 @@ des arrondissements est identique.
 
 - **Le score d'influence des monuments est dans le modèle depuis l'étape 2g.** Il fait gagner 1 € ;
   le gros gain vient de l'étape 4a (la taille en catégories) : de 81 à 77 €.
-- **Le modèle de l'appli (4a) est le plus précis des modèles linéaires.** Seuls le boosting et l'ajout
-  de la position ou de la surface font mieux, de 1 à 4 € seulement.
+- **Le modèle de l'appli (6c) est le modèle 4a plus le séjour minimum.** Le gain de précision est
+  faible (1 €), mais le champ « séjour minimum » de l'appli a désormais un effet réaliste. Seuls le
+  boosting et l'ajout de la position ou de la surface font un peu mieux.
 - **Pour le revenu, le levier a été le modèle de nuits (R7)**, pas le modèle de prix : même un prix
   parfait (ligne « Réf. ») laisserait environ 20 k€ d'erreur, à cause des nuits louées.
 
@@ -90,7 +103,8 @@ Depuis la racine du projet, avec le Python du `.venv` (`.venv/bin/python` sous L
 .venv/Scripts/python modelisation/comparaison.py             # étape 4
 .venv/Scripts/python modelisation/precision.py               # étape 5, ligne R11
 .venv/Scripts/python modelisation/occupation.py              # lignes R5-R8
-.venv/Scripts/python modele_lineaire_enrichi/entrainement.py # ligne R9, modèle de l'appli
+.venv/Scripts/python modelisation/sejour_minimum.py          # étape 6
+.venv/Scripts/python modele_lineaire_enrichi/entrainement.py # ligne App et R12, modèle de l'appli
 .venv/Scripts/python modele_gradient_boosting/entrainement.py # ligne R10
 ```
 

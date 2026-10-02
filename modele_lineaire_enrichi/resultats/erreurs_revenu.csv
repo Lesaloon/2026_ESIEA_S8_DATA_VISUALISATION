@@ -1,4 +1,4 @@
 ,R² (log),erreur moyenne (€/an),erreur médiane (€/an),RMSE (€/an),biais moyen (€/an),à 5 000 € près,à 10 000 € près
-Linéaire enrichi × nuits prévues,0.169,20736,14346,30832,-434,4556,9416
-Linéaire enrichi × nuits médianes (ancien calcul),0.173,22552,14680,34663,7878,4558,9344
+Linéaire enrichi × nuits prévues,0.17,20716,14297,30825,-627,4568,9507
+Linéaire enrichi × nuits médianes (ancien calcul),0.184,22381,14523,34449,7875,4615,9462
 Prix réel × nuits prévues,0.249,19825,14250,28426,-693,4748,9641

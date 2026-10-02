@@ -22,7 +22,12 @@ from regression import GRID, INK, ROOT, load_data, prepare_listings
 from revenu import FOLDS, PRICE, REVENUE, out_of_fold, revenue_metrics, show
 
 sys.path.append(str(ROOT / 'modele_lineaire_enrichi'))
-from entrainement import features as linear_features  # The final enriched linear price model.
+from entrainement import features
+
+
+def linear_features(frame, reference):
+    """The enriched linear price model as tested here (step 4a, before the minimum stay was added)."""
+    return features(frame, reference).drop(columns='minimum_nights', errors='ignore')
 
 
 NIGHTS = 'estimated_occupancy_l365d'

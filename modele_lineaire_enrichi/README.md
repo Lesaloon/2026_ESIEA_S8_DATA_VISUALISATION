@@ -13,8 +13,10 @@ No arguments. Same outputs as `modele_gradient_boosting/`, so the two can be com
 file by file; both use the shared pipeline `modelisation/revenu.py`.
 
 **Price model** (`entrainement.py`): linear regression of the log nightly price on capacity
-(1 to 8+) and bedrooms (studio to 4+) as categories, bathrooms, monument score, and
-one-hot arrondissement and property type. Every effect reads in euros.
+(1 to 8+) and bedrooms (studio to 4+) as categories, bathrooms, monument score, minimum stay,
+and one-hot arrondissement and property type. Every effect reads in euros. The minimum stay is
+capped at 7 nights then logged inside the model (a scikit-learn pipeline): no listing in the data
+has a longer one, and the web app can send the raw value. Tested in `modelisation/sejour_minimum.py`.
 
 **Nights model** (shared with the other folder): gradient boosting of the nights booked
 per year from the flat (bedrooms, capacity, bathrooms, monument score, arrondissement,
