@@ -103,6 +103,32 @@ INITIAL_LOCATION = {
 }
 
 
+def placement_grid():
+    """Create an invisible click surface and assign each point to its nearest area center."""
+    latitudes, longitudes = np.meshgrid(
+        np.linspace(48.815, 48.905, 61),
+        np.linspace(2.225, 2.470, 91),
+        indexing="ij",
+    )
+    points = pd.DataFrame(
+        {"latitude": latitudes.ravel(), "longitude": longitudes.ravel()}
+    )
+    point_lat = np.radians(points["latitude"].to_numpy())[:, None]
+    point_lon = np.radians(points["longitude"].to_numpy())[:, None]
+    center_lat = np.radians(AREA_CENTERS["latitude"].to_numpy())[None, :]
+    center_lon = np.radians(AREA_CENTERS["longitude"].to_numpy())[None, :]
+    distance = (
+        (point_lat - center_lat) ** 2
+        + (np.cos(point_lat) * (point_lon - center_lon)) ** 2
+    )
+    nearest = np.argmin(distance, axis=1)
+    points["arrondissement"] = AREA_CENTERS.iloc[nearest]["arrondissement"].to_numpy()
+    return points
+
+
+PLACEMENT_GRID = placement_grid()
+
+
 def blank_figure(message):
     figure = go.Figure()
     figure.add_annotation(
@@ -280,25 +306,42 @@ def monument_proximity(latitude, longitude):
 
 
 def estimator_map(area, location):
-    locations = LISTINGS.sample(min(3500, len(LISTINGS)), random_state=42).copy()
-    locations["point_color"] = np.where(
-        locations["arrondissement"] == area, COLORS["blue"], "#8d999d"
-    )
     proximity = monument_proximity(location["latitude"], location["longitude"])
-    closest_monuments = MONUMENTS.iloc[proximity["nearest_indices"]]
     figure = go.Figure()
     figure.add_trace(
         go.Scattermap(
-            lat=locations["latitude"], lon=locations["longitude"], mode="markers",
-            marker={"size": 7, "color": locations["point_color"], "opacity": 0.35},
-            customdata=locations[["latitude", "longitude", "arrondissement"]],
-            text=locations["name"], hovertemplate="%{text}<br>Cliquez pour placer le logement<extra></extra>",
+            lat=PLACEMENT_GRID["latitude"], lon=PLACEMENT_GRID["longitude"], mode="markers",
+            marker={"size": 13, "color": "rgba(0,0,0,0.01)"},
+            customdata=np.column_stack(
+                [
+                    np.full(len(PLACEMENT_GRID), "placement"),
+                    PLACEMENT_GRID[["latitude", "longitude", "arrondissement"]].to_numpy(),
+                ]
+            ),
+            hoverinfo="skip",
+        )
+    )
+    centers = AREA_CENTERS.copy()
+    centers["label"] = centers["arrondissement"].map(lambda value: f"{value:02d}")
+    figure.add_trace(
+        go.Scattermap(
+            lat=centers["latitude"], lon=centers["longitude"], mode="markers+text",
+            marker={"size": 15, "color": COLORS["blue"], "opacity": 0.9},
+            text=centers["label"], textposition="top center",
+            customdata=np.column_stack(
+                [
+                    np.full(len(centers), "placement"),
+                    centers[["latitude", "longitude", "arrondissement"]].to_numpy(),
+                ]
+            ),
+            hovertext=centers["area_label"],
+            hovertemplate="%{hovertext}<br>Cliquez pour sélectionner<extra></extra>",
         )
     )
     figure.add_trace(
         go.Scattermap(
-            lat=closest_monuments["lat"], lon=closest_monuments["long"], mode="markers",
-            marker={"size": 10, "color": "#25845b"}, text=closest_monuments["nom"],
+            lat=MONUMENTS["lat"], lon=MONUMENTS["long"], mode="markers",
+            marker={"size": 7, "color": "#25845b", "opacity": 0.75}, text=MONUMENTS["nom"],
             hovertemplate="%{text}<extra></extra>", hoverinfo="text",
         )
     )
@@ -466,7 +509,7 @@ app.layout = html.Div(
                             [
                                 html.Div(
                                     [
-                                        html.Div("Emplacement — cliquez sur un point", className="panel-label"),
+                                        html.Div("Emplacement — cliquez sur la carte", className="panel-label"),
                                         dcc.Graph(id="location-map", figure=estimator_map(11, INITIAL_LOCATION), config=PLOT_CONFIG, className="location-map"),
                                         field("Arrondissement", dcc.Dropdown(id="estimate-area", options=AREA_OPTIONS, value=11, clearable=False)),
                                         html.Div(
@@ -578,11 +621,12 @@ def update_market(areas, room_types, bedroom_range):
 def choose_location(click_data):
     if click_data and click_data.get("points"):
         custom = click_data["points"][0].get("customdata")
-        if custom and len(custom) >= 3:
-            return int(custom[2]), {
-                "latitude": float(custom[0]),
-                "longitude": float(custom[1]),
-                "arrondissement": int(custom[2]),
+        if custom is not None and len(custom) >= 4 and custom[0] == "placement":
+            area = int(float(custom[3]))
+            return area, {
+                "latitude": float(custom[1]),
+                "longitude": float(custom[2]),
+                "arrondissement": area,
             }
     return no_update, no_update
 
