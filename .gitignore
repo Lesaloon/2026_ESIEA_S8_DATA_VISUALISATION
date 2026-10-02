@@ -9,5 +9,4 @@ visualisation/*_correlations.png
 visualisation/*_quartiers.png
 .env
 .idea
-web/model.pkl
 modele_*/modeles/
