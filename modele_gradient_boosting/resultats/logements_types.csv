@@ -1,0 +1,121 @@
+arrondissement,logement,gestion,prix par nuit (€),nuits louées par an,revenu annuel (€),achat total (€),gain net annuel (€),années pour rembourser
+01 · Louvre,Studio,Gestion seul,245.0,142.0,36797.0,275250.0,31193.0,9.0
+02 · Bourse,Studio,Gestion seul,187.0,150.0,29659.0,231800.0,24686.0,9.0
+03 · Temple,Studio,Gestion seul,220.0,148.0,34243.0,265904.0,28784.0,9.0
+04 · Hôtel-de-Ville,Studio,Gestion seul,199.0,120.0,25148.0,296206.0,20536.0,14.0
+05 · Panthéon,Studio,Gestion seul,170.0,123.0,21962.0,253940.0,17605.0,14.0
+06 · Luxembourg,Studio,Gestion seul,220.0,138.0,31991.0,320860.0,26712.0,12.0
+07 · Palais-Bourbon,Studio,Gestion seul,214.0,137.0,30901.0,287380.0,25709.0,11.0
+08 · Élysée,Studio,Gestion seul,210.0,134.0,29574.0,281150.0,24428.0,12.0
+09 · Opéra,Studio,Gestion seul,167.0,140.0,24556.0,219920.0,19991.0,11.0
+10 · Entrepôt,Studio,Gestion seul,160.0,134.0,22600.0,193750.0,18252.0,11.0
+11 · Popincourt,Studio,Gestion seul,144.0,124.0,18805.0,229890.0,14641.0,16.0
+12 · Reuilly,Studio,Gestion seul,137.0,132.0,19071.0,231146.0,14765.0,16.0
+13 · Gobelins,Studio,Gestion seul,134.0,139.0,19583.0,212610.0,15356.0,14.0
+14 · Observatoire,Studio,Gestion seul,142.0,139.0,20790.0,221500.0,16407.0,14.0
+15 · Vaugirard,Studio,Gestion seul,162.0,131.0,22273.0,232550.0,17711.0,13.0
+16 · Passy,Studio,Gestion seul,177.0,124.0,23131.0,270350.0,18501.0,15.0
+17 · Batignolles-Monceau,Studio,Gestion seul,152.0,135.0,21581.0,218664.0,17254.0,13.0
+18 · Buttes-Montmartre,Studio,Gestion seul,135.0,114.0,16243.0,194250.0,12284.0,16.0
+19 · Buttes-Chaumont,Studio,Gestion seul,130.0,129.0,17583.0,207420.0,13336.0,16.0
+20 · Ménilmontant,Studio,Gestion seul,118.0,127.0,15762.0,210950.0,11721.0,18.0
+01 · Louvre,T2,Gestion seul,253.0,121.0,32313.0,498700.0,25928.0,19.0
+02 · Bourse,T2,Gestion seul,208.0,121.0,26412.0,467130.0,20559.0,23.0
+03 · Temple,T2,Gestion seul,250.0,120.0,31425.0,490543.0,25231.0,19.0
+04 · Hôtel-de-Ville,T2,Gestion seul,239.0,118.0,29608.0,528636.0,23499.0,22.0
+05 · Panthéon,T2,Gestion seul,208.0,115.0,25191.0,481577.0,19496.0,25.0
+06 · Luxembourg,T2,Gestion seul,254.0,116.0,31195.0,549500.0,25019.0,22.0
+07 · Palais-Bourbon,T2,Gestion seul,232.0,110.0,26766.0,579700.0,20825.0,28.0
+08 · Élysée,T2,Gestion seul,222.0,105.0,24554.0,565398.0,18490.0,31.0
+09 · Opéra,T2,Gestion seul,185.0,110.0,21566.0,441250.0,16221.0,27.0
+10 · Entrepôt,T2,Gestion seul,170.0,101.0,18136.0,365400.0,13125.0,28.0
+11 · Popincourt,T2,Gestion seul,164.0,99.0,17173.0,386750.0,12299.0,31.0
+12 · Reuilly,T2,Gestion seul,144.0,118.0,17929.0,365900.0,12815.0,29.0
+13 · Gobelins,T2,Gestion seul,143.0,113.0,16910.0,346460.0,11877.0,29.0
+14 · Observatoire,T2,Gestion seul,154.0,116.0,18815.0,368060.0,13630.0,27.0
+15 · Vaugirard,T2,Gestion seul,179.0,119.0,22531.0,399664.0,16929.0,24.0
+16 · Passy,T2,Gestion seul,207.0,101.0,22101.0,547100.0,15933.0,34.0
+17 · Batignolles-Monceau,T2,Gestion seul,160.0,98.0,16515.0,392326.0,11574.0,34.0
+18 · Buttes-Montmartre,T2,Gestion seul,153.0,98.0,15823.0,332750.0,11057.0,30.0
+19 · Buttes-Chaumont,T2,Gestion seul,138.0,100.0,14438.0,344800.0,9483.0,36.0
+20 · Ménilmontant,T2,Gestion seul,129.0,112.0,15247.0,352434.0,10287.0,34.0
+01 · Louvre,T3,Gestion seul,422.0,118.0,52574.0,847850.0,43068.0,20.0
+02 · Bourse,T3,Gestion seul,351.0,120.0,44423.0,869200.0,35629.0,24.0
+03 · Temple,T3,Gestion seul,491.0,115.0,59789.0,915270.0,49466.0,19.0
+04 · Hôtel-de-Ville,T3,Gestion seul,401.0,122.0,51685.0,922950.0,42370.0,22.0
+05 · Panthéon,T3,Gestion seul,362.0,116.0,44349.0,695943.0,36101.0,19.0
+06 · Luxembourg,T3,Gestion seul,429.0,102.0,46287.0,954106.0,37104.0,26.0
+07 · Palais-Bourbon,T3,Gestion seul,393.0,116.0,47966.0,989250.0,38589.0,26.0
+08 · Élysée,T3,Gestion seul,371.0,104.0,40514.0,875600.0,31792.0,28.0
+09 · Opéra,T3,Gestion seul,311.0,98.0,32199.0,730732.0,24623.0,30.0
+10 · Entrepôt,T3,Gestion seul,273.0,94.0,27208.0,609000.0,20032.0,30.0
+11 · Popincourt,T3,Gestion seul,274.0,98.0,28341.0,660450.0,21134.0,31.0
+12 · Reuilly,T3,Gestion seul,234.0,113.0,27877.0,590748.0,20647.0,29.0
+13 · Gobelins,T3,Gestion seul,221.0,104.0,24186.0,552550.0,17191.0,32.0
+14 · Observatoire,T3,Gestion seul,264.0,113.0,31369.0,586320.0,23860.0,25.0
+15 · Vaugirard,T3,Gestion seul,305.0,109.0,34938.0,624080.0,27023.0,23.0
+16 · Passy,T3,Gestion seul,354.0,86.0,31947.0,869780.0,23492.0,37.0
+17 · Batignolles-Monceau,T3,Gestion seul,279.0,94.0,27525.0,663000.0,20323.0,33.0
+18 · Buttes-Montmartre,T3,Gestion seul,246.0,97.0,25192.0,556700.0,18417.0,30.0
+19 · Buttes-Chaumont,T3,Gestion seul,204.0,91.0,19457.0,534150.0,12720.0,42.0
+20 · Ménilmontant,T3,Gestion seul,199.0,97.0,20356.0,555250.0,13667.0,41.0
+01 · Louvre,Studio,Conciergerie,245.0,144.0,37204.0,275250.0,24127.0,11.0
+02 · Bourse,Studio,Conciergerie,187.0,160.0,31601.0,231800.0,20153.0,12.0
+03 · Temple,Studio,Conciergerie,220.0,133.0,30875.0,265904.0,19510.0,14.0
+04 · Hôtel-de-Ville,Studio,Conciergerie,199.0,122.0,25564.0,296206.0,15806.0,19.0
+05 · Panthéon,Studio,Conciergerie,170.0,104.0,18648.0,253940.0,10826.0,23.0
+06 · Luxembourg,Studio,Conciergerie,220.0,139.0,32250.0,320860.0,20500.0,16.0
+07 · Palais-Bourbon,Studio,Conciergerie,214.0,140.0,31563.0,287380.0,20005.0,14.0
+08 · Élysée,Studio,Conciergerie,210.0,130.0,28759.0,281150.0,17926.0,16.0
+09 · Opéra,Studio,Conciergerie,167.0,148.0,26071.0,219920.0,16171.0,14.0
+10 · Entrepôt,Studio,Conciergerie,160.0,145.0,24501.0,193750.0,15101.0,13.0
+11 · Popincourt,Studio,Conciergerie,144.0,155.0,23497.0,229890.0,14258.0,16.0
+12 · Reuilly,Studio,Conciergerie,137.0,174.0,25099.0,231146.0,15291.0,15.0
+13 · Gobelins,Studio,Conciergerie,134.0,144.0,20237.0,212610.0,11910.0,18.0
+14 · Observatoire,Studio,Conciergerie,142.0,142.0,21222.0,221500.0,12560.0,18.0
+15 · Vaugirard,Studio,Conciergerie,162.0,163.0,27692.0,232550.0,17158.0,14.0
+16 · Passy,Studio,Conciergerie,177.0,146.0,27274.0,270350.0,16857.0,16.0
+17 · Batignolles-Monceau,Studio,Conciergerie,152.0,141.0,22518.0,218664.0,13613.0,16.0
+18 · Buttes-Montmartre,Studio,Conciergerie,135.0,98.0,13980.0,194250.0,7406.0,26.0
+19 · Buttes-Chaumont,Studio,Conciergerie,130.0,127.0,17403.0,207420.0,9690.0,21.0
+20 · Ménilmontant,Studio,Conciergerie,118.0,176.0,21935.0,210950.0,13013.0,16.0
+01 · Louvre,T2,Conciergerie,253.0,135.0,35967.0,498700.0,22097.0,23.0
+02 · Bourse,T2,Conciergerie,208.0,146.0,31964.0,467130.0,19274.0,24.0
+03 · Temple,T2,Conciergerie,250.0,125.0,32757.0,490543.0,19905.0,25.0
+04 · Hôtel-de-Ville,T2,Conciergerie,239.0,126.0,31762.0,528636.0,19129.0,28.0
+05 · Panthéon,T2,Conciergerie,208.0,118.0,25834.0,481577.0,14920.0,32.0
+06 · Luxembourg,T2,Conciergerie,254.0,131.0,35072.0,549500.0,21572.0,25.0
+07 · Palais-Bourbon,T2,Conciergerie,232.0,124.0,30332.0,579700.0,18039.0,32.0
+08 · Élysée,T2,Conciergerie,222.0,136.0,31848.0,565398.0,18831.0,30.0
+09 · Opéra,T2,Conciergerie,185.0,134.0,26210.0,441250.0,15251.0,29.0
+10 · Entrepôt,T2,Conciergerie,170.0,145.0,25992.0,365400.0,15154.0,24.0
+11 · Popincourt,T2,Conciergerie,164.0,144.0,24919.0,386750.0,14441.0,27.0
+12 · Reuilly,T2,Conciergerie,144.0,161.0,24478.0,365900.0,13944.0,26.0
+13 · Gobelins,T2,Conciergerie,143.0,128.0,19302.0,346460.0,10217.0,34.0
+14 · Observatoire,T2,Conciergerie,154.0,121.0,19608.0,368060.0,10438.0,35.0
+15 · Vaugirard,T2,Conciergerie,179.0,151.0,28482.0,399664.0,16707.0,24.0
+16 · Passy,T2,Conciergerie,207.0,130.0,28419.0,547100.0,16062.0,34.0
+17 · Batignolles-Monceau,T2,Conciergerie,160.0,121.0,20323.0,392326.0,11012.0,36.0
+18 · Buttes-Montmartre,T2,Conciergerie,153.0,103.0,16642.0,332750.0,8482.0,39.0
+19 · Buttes-Chaumont,T2,Conciergerie,138.0,115.0,16622.0,344800.0,8168.0,42.0
+20 · Ménilmontant,T2,Conciergerie,129.0,166.0,22658.0,352434.0,12574.0,28.0
+01 · Louvre,T3,Conciergerie,422.0,138.0,61394.0,847850.0,38904.0,22.0
+02 · Bourse,T3,Conciergerie,351.0,146.0,53982.0,869200.0,33627.0,26.0
+03 · Temple,T3,Conciergerie,491.0,143.0,73849.0,915270.0,47632.0,19.0
+04 · Hôtel-de-Ville,T3,Conciergerie,401.0,123.0,52040.0,922950.0,32289.0,29.0
+05 · Panthéon,T3,Conciergerie,362.0,128.0,48767.0,695943.0,30412.0,23.0
+06 · Luxembourg,T3,Conciergerie,429.0,131.0,59286.0,954106.0,37206.0,26.0
+07 · Palais-Bourbon,T3,Conciergerie,393.0,134.0,55497.0,989250.0,34418.0,29.0
+08 · Élysée,T3,Conciergerie,371.0,137.0,53466.0,875600.0,33015.0,27.0
+09 · Opéra,T3,Conciergerie,311.0,130.0,42611.0,730732.0,25680.0,28.0
+10 · Entrepôt,T3,Conciergerie,273.0,143.0,41236.0,609000.0,24690.0,25.0
+11 · Popincourt,T3,Conciergerie,274.0,150.0,43187.0,660450.0,26155.0,25.0
+12 · Reuilly,T3,Conciergerie,234.0,142.0,34856.0,590748.0,20096.0,29.0
+13 · Gobelins,T3,Conciergerie,221.0,129.0,30105.0,552550.0,16616.0,33.0
+14 · Observatoire,T3,Conciergerie,264.0,135.0,37477.0,586320.0,21983.0,27.0
+15 · Vaugirard,T3,Conciergerie,305.0,136.0,43683.0,624080.0,26332.0,24.0
+16 · Passy,T3,Conciergerie,354.0,131.0,48876.0,869780.0,29291.0,30.0
+17 · Batignolles-Monceau,T3,Conciergerie,279.0,115.0,33788.0,663000.0,19327.0,34.0
+18 · Buttes-Montmartre,T3,Conciergerie,246.0,121.0,31417.0,556700.0,17860.0,31.0
+19 · Buttes-Chaumont,T3,Conciergerie,204.0,115.0,24657.0,534150.0,12573.0,42.0
+20 · Ménilmontant,T3,Conciergerie,199.0,166.0,34681.0,555250.0,19910.0,28.0

@@ -9,4 +9,8 @@ visualisation/*_correlations.png
 visualisation/*_quartiers.png
 .env
 .idea
+<<<<<<< Updated upstream
 web/model.pkl
+=======
+modele_*/modeles/
+>>>>>>> Stashed changes

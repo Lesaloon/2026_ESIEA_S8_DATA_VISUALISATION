@@ -35,6 +35,9 @@ rules are not applied.
 
 `regression.ipynb` is the first, notebook version of the same analysis (returns in %).
 
+`revenu.py` is not a script: it is the training, saving and results pipeline shared by
+the final model folders `modele_lineaire_enrichi/` and `modele_gradient_boosting/`.
+
 ## Monuments against arrondissements
 
 ```sh
@@ -109,3 +112,24 @@ around a reference flat. Charts saved in this folder:
 - `comparaison_par_taille.png`: median error by capacity and bedrooms (current model,
   enriched linear, gradient boosting).
 - `arbre_decision.png`: the first three levels of the decision tree, prices in euros.
+
+## Nights booked and decision-level error
+
+```sh
+.venv/bin/python modelisation/occupation.py      # Linux
+.venv/Scripts/python modelisation/occupation.py  # Windows
+```
+
+Two tests around the final enriched linear price model (annual revenue = mean predicted
+nightly price × nights booked, 5 folds):
+
+1. Nights booked from the arrondissement's median or mean, or from a gradient boosting model
+   of the flat, then of the flat and its management (number of flats run by the host,
+   minimum stay). `availability_365` is tested apart and flagged: bookings lower it, so it
+   partly contains the answer.
+2. Mean predicted against mean real revenue by arrondissement (and by arrondissement and
+   bedrooms), with the rank correlation of the arrondissements.
+
+Charts: `occupation_revenu.png` (revenue error of each option) and
+`occupation_par_arrondissement.png` (mean revenue by arrondissement, predicted and real).
+The flat-and-management nights model is the one used by `revenu.py`.

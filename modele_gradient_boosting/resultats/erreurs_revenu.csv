@@ -1,0 +1,4 @@
+,R² (log),erreur moyenne (€/an),erreur médiane (€/an),RMSE (€/an),biais moyen (€/an),à 5 000 € près,à 10 000 € près
+Gradient boosting × nuits prévues,0.172,20710,14331,30717,-313,4591,9426
+Gradient boosting × nuits médianes (ancien calcul),0.176,22583,14515,34688,7960,4573,9417
+Prix réel × nuits prévues,0.247,19889,14299,28502,-720,4777,9593
