@@ -628,26 +628,45 @@ def investment_options(budget):
     return pd.DataFrame(rows).sort_values(["roi", "sales"], ascending=[False, False]) if rows else pd.DataFrame()
 
 
-def investment_chart(options):
-    shown = options.head(10).sort_values("roi")
+# "Optimiser pour" choices: the investment_options() column ranked highest first, and how it reads.
+OBJECTIVES = {
+    "roi": {
+        "label": "Rendement net",
+        "panel": "Meilleurs rendements accessibles",
+        "axis": "Rendement net annuel (%)",
+        "text": lambda value: f"{value:.1f} %",
+    },
+    "net_revenue": {
+        "label": "Gain net par an",
+        "panel": "Meilleurs gains nets accessibles",
+        "axis": "Gain net annuel (€)",
+        "text": lambda value: f"{value:,.0f} €".replace(",", " "),
+    },
+}
+
+
+def investment_chart(options, objective="roi"):
+    spec = OBJECTIVES[objective]
+    shown = options.head(10).sort_values(objective)
     figure = go.Figure(
         go.Bar(
-            x=shown["roi"],
+            x=shown[objective],
             y=shown["label"],
             orientation="h",
             marker_color=COLORS["blue"],
-            customdata=shown[["total_cost", "net_revenue", "payback"]],
-            text=[f"{value:.1f} %" for value in shown["roi"]],
+            customdata=shown[["total_cost", "net_revenue", "payback", "roi"]],
+            text=[spec["text"](value) for value in shown[objective]],
             textposition="outside",
             hovertemplate=(
-                "%{y}<br><b>%{x:.2f} % net / an</b>"
+                "%{y}<br><b>%{customdata[3]:.2f} % net / an</b>"
                 "<br>Coût total : %{customdata[0]:,.0f} €"
                 "<br>Gain net : %{customdata[1]:,.0f} € / an"
                 "<br>Remboursement : %{customdata[2]:.1f} ans<extra></extra>"
             ),
         )
     )
-    figure.update_xaxes(title="Rendement net annuel (%)", rangemode="tozero")
+    # Room on the right for the value written after the longest bar.
+    figure.update_xaxes(title=spec["axis"], range=[0, float(shown[objective].max()) * 1.18])
     return style_figure(figure, {"l": 175, "r": 55, "t": 20, "b": 45})
 
 
@@ -850,6 +869,15 @@ app.layout = html.Div(
                                     ),
                                     "Prix d’achat, notaire et ameublement inclus",
                                 ),
+                                field(
+                                    "Optimiser pour",
+                                    dcc.Dropdown(
+                                        id="investment-objective",
+                                        options=[{"label": spec["label"], "value": key} for key, spec in OBJECTIVES.items()],
+                                        value="roi",
+                                        clearable=False,
+                                    ),
+                                ),
                                 html.Button(
                                     "Comparer les investissements",
                                     id="investment-button",
@@ -864,7 +892,7 @@ app.layout = html.Div(
                             [
                                 html.Div(
                                     [
-                                        html.Div("Meilleurs rendements accessibles", className="panel-label"),
+                                        html.Div("Meilleurs rendements accessibles", id="investment-ranking-label", className="panel-label"),
                                         dcc.Graph(
                                             id="investment-ranking",
                                             config={"displayModeBar": False},
@@ -963,44 +991,52 @@ def update_model_status(_interval):
 
 @callback(
     Output("investment-ranking", "figure"),
+    Output("investment-ranking-label", "children"),
     Output("investment-budget-summary", "children"),
     Output("investment-table", "children"),
     Input("investment-button", "n_clicks"),
+    Input("investment-objective", "value"),
     State("investment-budget", "value"),
 )
-def compare_investments(_clicks, budget_value):
+def compare_investments(_clicks, objective, budget_value):
+    objective = objective if objective in OBJECTIVES else "roi"
+    panel = OBJECTIVES[objective]["panel"]
     try:
         normalized = str(budget_value).replace(" ", "").replace("\u202f", "").replace("€", "").replace(",", ".")
         budget = float(normalized)
     except (TypeError, ValueError):
-        return blank_figure("Budget invalide"), "Saisissez un montant en euros.", ""
+        return blank_figure("Budget invalide"), panel, "Saisissez un montant en euros.", ""
     if not 50_000 <= budget <= 10_000_000:
-        return blank_figure("Budget hors limites"), "Budget accepté : 50 000 € à 10 000 000 €.", ""
+        return blank_figure("Budget hors limites"), panel, "Budget accepté : 50 000 € à 10 000 000 €.", ""
     try:
         options = investment_options(budget)
     except FileNotFoundError as error:
-        return blank_figure("Modèle indisponible"), str(error), ""
+        return blank_figure("Modèle indisponible"), panel, str(error), ""
     except Exception as error:
-        return blank_figure("Calcul impossible"), f"Erreur du modèle : {error}", ""
+        return blank_figure("Calcul impossible"), panel, f"Erreur du modèle : {error}", ""
     if options.empty:
         return (
             blank_figure("Aucun bien médian accessible avec ce budget"),
+            panel,
             f"Aucune option comparable sous {budget:,.0f} €".replace(",", " "),
             "",
         )
 
+    options = options.sort_values([objective, "sales"], ascending=[False, False])
     euros = lambda value: f"{value:,.0f} €".replace(",", " ")
     best = options.iloc[0]
     summary = html.Div(
         [
             html.Strong(best["label"]),
             html.Span(
-                f"{best['roi']:.2f} % net/an · {best['payback']:.1f} ans · "
+                f"{best['roi']:.2f} % net/an · {euros(best['net_revenue'])} net/an · {best['payback']:.1f} ans · "
                 f"{euros(best['total_cost'])} tout compris"
             ),
         ]
     )
-    headings = ["Option", "Coût total", "Prix/nuit", "Gain net/an", "Rendement", "Retour"]
+    columns = [("Option", None), ("Coût total", "total_cost"), ("Prix/nuit", "nightly_price"),
+               ("Gain net/an", "net_revenue"), ("Rendement", "roi"), ("Retour", "payback")]
+    headings = [f"{title} ▼" if key == objective else title for title, key in columns]
     body = []
     for row in options.head(5).itertuples():
         body.append(
@@ -1018,7 +1054,7 @@ def compare_investments(_clicks, budget_value):
     table = html.Table(
         [html.Thead(html.Tr([html.Th(heading) for heading in headings])), html.Tbody(body)]
     )
-    return investment_chart(options), summary, table
+    return investment_chart(options, objective), panel, summary, table
 
 
 @callback(

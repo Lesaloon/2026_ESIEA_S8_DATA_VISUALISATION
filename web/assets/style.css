@@ -96,7 +96,7 @@ a { color: inherit; }
 .model-status strong { color: #ffd6cd; }
 
 .investment-section { border-top: 1px solid var(--ink); }
-.budget-toolbar { display: grid; grid-template-columns: minmax(220px, 320px) auto 1fr; gap: 18px; align-items: end; padding: 18px; border: 1px solid var(--ink); background: var(--panel); }
+.budget-toolbar { display: grid; grid-template-columns: minmax(220px, 320px) minmax(180px, 240px) auto 1fr; gap: 18px; align-items: end; padding: 18px; border: 1px solid var(--ink); background: var(--panel); }
 .budget-toolbar .field > input { width: 100%; height: 34px; padding: 0 9px; border: 1px solid #b7bdbb; border-radius: 3px; font: inherit; }
 .investment-button { height: 34px; padding: 0 18px; border: 1px solid var(--ink); color: white; background: var(--ink); font-weight: 600; cursor: pointer; }
 .investment-button:hover { background: var(--blue); }
