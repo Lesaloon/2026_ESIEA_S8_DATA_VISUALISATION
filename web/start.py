@@ -3,7 +3,6 @@
 import os
 import pickle
 import sqlite3
-from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +35,12 @@ COLORS = {
     "red": "#df5338",
     "line": "#d6d5cd",
 }
+NOTARY_FEES = 0.08
+FURNISHING_EUR_M2 = 250
+AIRBNB_FEE = 0.03
+SUPPLIES = 0.05
+CHARGES_EUR_M2 = 60
+FIXED_EUR = 1_400
 
 
 def load_market():
@@ -77,7 +82,65 @@ def load_market():
     return listings, areas, monuments
 
 
+def load_property_sales():
+    """Prepare median DVF apartment sales by arrondissement and bedroom count."""
+    query = """
+        SELECT date_mutation, nature_mutation, valeur_fonciere, code_commune,
+               code_type_local, nombre_pieces_principales, surface_reelle_bati,
+               arrondissement
+        FROM paris_property_sales
+        WHERE valeur_fonciere > 0 AND arrondissement BETWEEN 1 AND 20
+    """
+    with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as connection:
+        sales = pd.read_sql_query(query, connection)
+    sales = sales.assign(
+        flat=sales["code_type_local"] == 2,
+        other=sales["code_type_local"].isin([1, 4]),
+    )
+    per_sale = sales.groupby(
+        ["date_mutation", "nature_mutation", "valeur_fonciere", "code_commune"],
+        as_index=False,
+    ).agg(
+        flats=("flat", "sum"),
+        other=("other", "sum"),
+        rooms=("nombre_pieces_principales", "max"),
+        surface=("surface_reelle_bati", "max"),
+        arrondissement=("arrondissement", "first"),
+    )
+    single = per_sale[
+        (per_sale["flats"] == 1)
+        & (per_sale["other"] == 0)
+        & (per_sale["nature_mutation"] == "Vente")
+        & per_sale["rooms"].between(1, 6)
+        & (per_sale["surface"] >= 9)
+    ].copy()
+    price_m2 = single["valeur_fonciere"] / single["surface"]
+    single = single[price_m2.between(*price_m2.quantile([0.01, 0.99]))]
+    single["bedrooms"] = single["rooms"] - 1
+    return single.groupby(["arrondissement", "bedrooms"], as_index=False).agg(
+        sale_price=("valeur_fonciere", "median"),
+        surface=("surface", "median"),
+        sales=("valeur_fonciere", "size"),
+    )
+
+
+def load_area_occupancy():
+    query = """
+        SELECT arrondissement, estimated_occupancy_l365d
+        FROM airbnb_listings
+        WHERE room_type = 'Entire home/apt'
+          AND number_of_reviews_ltm > 0
+          AND minimum_nights < 30
+          AND estimated_occupancy_l365d IS NOT NULL
+    """
+    with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as connection:
+        occupancy = pd.read_sql_query(query, connection)
+    return occupancy.groupby("arrondissement")["estimated_occupancy_l365d"].median()
+
+
 LISTINGS, AREAS, MONUMENTS = load_market()
+PROPERTY_SALES = load_property_sales()
+AREA_OCCUPANCY = load_area_occupancy()
 AREA_NAMES = dict(zip(AREAS["arrondissement"], AREAS["name"]))
 AREA_OPTIONS = [
     {"label": f"{row.arrondissement:02d} · {row.name}", "value": row.arrondissement}
@@ -283,6 +346,42 @@ def price_correlations(frame):
     return style_figure(figure, {"l": 130, "r": 35, "t": 20, "b": 45})
 
 
+def capacity_counts(frame):
+    capacity = frame["accommodates"].clip(upper=8).value_counts().sort_index()
+    figure = go.Figure(
+        go.Bar(
+            x=[f"{int(value)}" if value < 8 else "8+" for value in capacity.index],
+            y=capacity.values,
+            marker_color=COLORS["blue"],
+            hovertemplate="%{x} voyageur(s)<br><b>%{y:,}</b> annonces<extra></extra>",
+        )
+    )
+    figure.update_xaxes(title="Capacité d’accueil")
+    figure.update_yaxes(title="Nombre d’annonces")
+    return style_figure(figure)
+
+
+def occupancy_by_area(frame):
+    summary = (
+        frame.dropna(subset=["estimated_occupancy_l365d"])
+        .groupby("area_label", as_index=False)["estimated_occupancy_l365d"]
+        .median()
+        .sort_values("estimated_occupancy_l365d")
+    )
+    figure = px.bar(
+        summary,
+        x="estimated_occupancy_l365d",
+        y="area_label",
+        orientation="h",
+        color="estimated_occupancy_l365d",
+        color_continuous_scale=[COLORS["blue_light"], COLORS["blue"]],
+        labels={"estimated_occupancy_l365d": "Nuits occupées / an", "area_label": ""},
+    )
+    figure.update_traces(hovertemplate="%{y}<br><b>%{x:.0f}</b> nuits occupées / an<extra></extra>")
+    figure.update_layout(coloraxis_showscale=False)
+    return style_figure(figure, {"l": 125, "r": 18, "t": 20, "b": 40})
+
+
 def monument_proximity(latitude, longitude):
     """Apply the same three-nearest-monuments score as database ingestion."""
     lat = np.radians(float(latitude))
@@ -311,14 +410,14 @@ def estimator_map(area, location):
     figure.add_trace(
         go.Scattermap(
             lat=PLACEMENT_GRID["latitude"], lon=PLACEMENT_GRID["longitude"], mode="markers",
-            marker={"size": 13, "color": "rgba(0,0,0,0.01)"},
+            marker={"size": 24, "color": "rgba(23,107,135,0.002)"},
             customdata=np.column_stack(
                 [
                     np.full(len(PLACEMENT_GRID), "placement"),
                     PLACEMENT_GRID[["latitude", "longitude", "arrondissement"]].to_numpy(),
                 ]
             ),
-            hoverinfo="skip",
+            hoverinfo="none",
         )
     )
     centers = AREA_CENTERS.copy()
@@ -358,14 +457,13 @@ def estimator_map(area, location):
         showlegend=False,
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
-        clickmode="event+select",
+        clickmode="event",
         map={"zoom": 10.5, "center": {"lat": center["latitude"], "lon": center["longitude"]}},
         uirevision=f"estimator-map-{area}",
     )
     return figure
 
 
-@lru_cache(maxsize=1)
 def load_model():
     """Load a trusted local pickle. Never use this with an untrusted model file."""
     if not MODEL_PATH.exists():
@@ -426,11 +524,155 @@ def predict_price(features):
     return prediction
 
 
+def investment_metrics(area, bedrooms, nightly_price):
+    """Convert a nightly estimate into an indicative DVF investment scenario."""
+    comparable = PROPERTY_SALES[PROPERTY_SALES["arrondissement"] == int(area)].copy()
+    if comparable.empty:
+        raise ValueError("Aucune transaction DVF comparable pour cet arrondissement.")
+    comparable["bedroom_gap"] = (comparable["bedrooms"] - int(bedrooms)).abs()
+    sale = comparable.sort_values(["bedroom_gap", "sales"], ascending=[True, False]).iloc[0]
+    nights = float(AREA_OCCUPANCY.get(int(area), np.nan))
+    if not np.isfinite(nights):
+        raise ValueError("Occupation indisponible pour cet arrondissement.")
+    gross_revenue = float(nightly_price) * nights
+    investment = sale["sale_price"] * (1 + NOTARY_FEES) + sale["surface"] * FURNISHING_EUR_M2
+    net_revenue = (
+        gross_revenue * (1 - AIRBNB_FEE - SUPPLIES)
+        - sale["surface"] * CHARGES_EUR_M2
+        - FIXED_EUR
+    )
+    payback = investment / net_revenue if net_revenue > 0 else np.nan
+    return {
+        "sale_price": float(sale["sale_price"]),
+        "surface": float(sale["surface"]),
+        "sales": int(sale["sales"]),
+        "bedrooms": int(sale["bedrooms"]),
+        "occupancy": nights,
+        "gross_revenue": gross_revenue,
+        "payback": float(payback),
+    }
+
+
+def investment_options(budget):
+    """Rank median properties whose full acquisition cost fits the budget."""
+    rows = []
+    candidates = PROPERTY_SALES[PROPERTY_SALES["sales"] >= 5]
+    for sale in candidates.itertuples():
+        total_cost = (
+            sale.sale_price * (1 + NOTARY_FEES)
+            + sale.surface * FURNISHING_EUR_M2
+        )
+        if total_cost > budget:
+            continue
+        comparable = LISTINGS[
+            (LISTINGS["arrondissement"] == sale.arrondissement)
+            & (LISTINGS["bedrooms"] == sale.bedrooms)
+        ]
+        if comparable.empty:
+            comparable = LISTINGS[LISTINGS["bedrooms"] == sale.bedrooms]
+        if comparable.empty:
+            continue
+        guests = int(np.clip(round(comparable["accommodates"].median()), 1, 16))
+        bathrooms = float(comparable["bathrooms"].median())
+        monument_score = float(
+            LISTINGS.loc[
+                LISTINGS["arrondissement"] == sale.arrondissement,
+                "tourist_proximity_score",
+            ].median()
+        )
+        nightly_price = predict_price(
+            {
+                "arrondissement": int(sale.arrondissement),
+                "latitude": 0,
+                "longitude": 0,
+                "accommodates": guests,
+                "bedrooms": float(sale.bedrooms),
+                "bathrooms": bathrooms,
+                "minimum_nights": 2,
+                "property_type": "Entire rental unit",
+                "room_type": "Entire home/apt",
+                "nearest_monument_distance_km": 0,
+                "tourist_proximity_score": monument_score,
+            }
+        )
+        nights = float(AREA_OCCUPANCY.get(int(sale.arrondissement), np.nan))
+        if not np.isfinite(nights):
+            continue
+        gross_revenue = nightly_price * nights
+        net_revenue = (
+            gross_revenue * (1 - AIRBNB_FEE - SUPPLIES)
+            - sale.surface * CHARGES_EUR_M2
+            - FIXED_EUR
+        )
+        if net_revenue <= 0:
+            continue
+        typology = "Studio" if sale.bedrooms == 0 else f"T{int(sale.bedrooms) + 1}"
+        rows.append(
+            {
+                "arrondissement": int(sale.arrondissement),
+                "area": AREA_NAMES[int(sale.arrondissement)],
+                "typology": typology,
+                "label": f"{int(sale.arrondissement):02d} · {AREA_NAMES[int(sale.arrondissement)]} · {typology}",
+                "total_cost": float(total_cost),
+                "sale_price": float(sale.sale_price),
+                "surface": float(sale.surface),
+                "sales": int(sale.sales),
+                "nightly_price": nightly_price,
+                "occupancy": nights,
+                "gross_revenue": gross_revenue,
+                "net_revenue": net_revenue,
+                "roi": 100 * net_revenue / total_cost,
+                "payback": total_cost / net_revenue,
+            }
+        )
+    return pd.DataFrame(rows).sort_values(["roi", "sales"], ascending=[False, False]) if rows else pd.DataFrame()
+
+
+def investment_chart(options):
+    shown = options.head(10).sort_values("roi")
+    figure = go.Figure(
+        go.Bar(
+            x=shown["roi"],
+            y=shown["label"],
+            orientation="h",
+            marker_color=COLORS["blue"],
+            customdata=shown[["total_cost", "net_revenue", "payback"]],
+            text=[f"{value:.1f} %" for value in shown["roi"]],
+            textposition="outside",
+            hovertemplate=(
+                "%{y}<br><b>%{x:.2f} % net / an</b>"
+                "<br>Coût total : %{customdata[0]:,.0f} €"
+                "<br>Gain net : %{customdata[1]:,.0f} € / an"
+                "<br>Remboursement : %{customdata[2]:.1f} ans<extra></extra>"
+            ),
+        )
+    )
+    figure.update_xaxes(title="Rendement net annuel (%)", rangemode="tozero")
+    return style_figure(figure, {"l": 175, "r": 55, "t": 20, "b": 45})
+
+
 def field(label, component, hint=None):
     children = [html.Label(label), component]
     if hint:
         children.append(html.Small(hint))
     return html.Div(children, className="field")
+
+
+def number_field(label, field_id, minimum, maximum, step, value, hint=None):
+    control = html.Div(
+        [
+            html.Button("-", id=f"{field_id}-minus", n_clicks=0, type="button", **{"aria-label": f"Réduire {label.lower()}"}),
+            dcc.Input(
+                id=field_id,
+                type="text",
+                inputMode="decimal" if step < 1 else "numeric",
+                value=value,
+            ),
+            html.Button("+", id=f"{field_id}-plus", n_clicks=0, type="button", **{"aria-label": f"Augmenter {label.lower()}"}),
+        ],
+        className="number-control",
+    )
+    return field(label, control, hint)
 
 
 app = Dash(
@@ -444,10 +686,17 @@ server = app.server
 app.layout = html.Div(
     [
         dcc.Store(id="estimate-location", data=INITIAL_LOCATION),
+        dcc.Interval(id="model-check", interval=5_000, n_intervals=0),
         html.Header(
             [
                 html.Div("Locations Airbnb à Paris", className="brand"),
-                html.Nav([html.A("Données", href="#explorer"), html.A("Estimation", href="#estimer")]),
+                html.Nav(
+                    [
+                        html.A("Données", href="#explorer"),
+                        html.A("Estimation", href="#estimer"),
+                        html.A("Investissement", href="#investir"),
+                    ]
+                ),
             ],
             className="topbar",
         ),
@@ -495,6 +744,20 @@ app.layout = html.Div(
                                     ],
                                     className="panel",
                                 ),
+                                html.Div(
+                                    [
+                                        html.Div("Nombre d’annonces par capacité", className="panel-label"),
+                                        dcc.Graph(id="capacity-counts", config={"displayModeBar": False}, className="small-chart"),
+                                    ],
+                                    className="panel",
+                                ),
+                                html.Div(
+                                    [
+                                        html.Div("Occupation par arrondissement", className="panel-label"),
+                                        dcc.Graph(id="area-occupancy", config={"displayModeBar": False}, className="small-chart"),
+                                    ],
+                                    className="panel",
+                                ),
                             ],
                             className="dashboard-grid",
                         ),
@@ -510,8 +773,6 @@ app.layout = html.Div(
                                 html.Div(
                                     [
                                         html.Div("Emplacement — cliquez sur la carte", className="panel-label"),
-                                        dcc.Graph(id="location-map", figure=estimator_map(11, INITIAL_LOCATION), config=PLOT_CONFIG, className="location-map"),
-                                        field("Arrondissement", dcc.Dropdown(id="estimate-area", options=AREA_OPTIONS, value=11, clearable=False)),
                                         html.Div(
                                             [
                                                 html.Div([html.Strong("—", id="monument-score"), html.Span("score monument")]),
@@ -520,6 +781,8 @@ app.layout = html.Div(
                                             ],
                                             className="location-summary",
                                         ),
+                                        field("Arrondissement", dcc.Dropdown(id="estimate-area", options=AREA_OPTIONS, value=11, clearable=False)),
+                                        dcc.Graph(id="location-map", figure=estimator_map(11, INITIAL_LOCATION), config=PLOT_CONFIG, className="location-map"),
                                     ],
                                     className="panel location-panel",
                                 ),
@@ -528,16 +791,16 @@ app.layout = html.Div(
                                         html.Div("Logement", className="panel-label"),
                                         html.Div(
                                             [
-                                                field("Voyageurs", dcc.Input(id="estimate-guests", type="number", min=1, max=16, step=1, value=2)),
-                                                field("Chambres", dcc.Input(id="estimate-bedrooms", type="number", min=0, max=10, step=1, value=1)),
-                                                field("Salles de bain", dcc.Input(id="estimate-bathrooms", type="number", min=0.5, max=10, step=0.5, value=1)),
-                                                field("Séjour minimum", dcc.Input(id="estimate-minimum", type="number", min=1, max=365, step=1, value=2), "En nuits"),
+                                                number_field("Voyageurs", "estimate-guests", 1, 16, 1, 2),
+                                                number_field("Chambres", "estimate-bedrooms", 0, 10, 1, 1),
+                                                number_field("Salles de bain", "estimate-bathrooms", 0.5, 10, 0.5, 1),
+                                                number_field("Séjour minimum", "estimate-minimum", 1, 365, 1, 2, "En nuits"),
                                                 field("Type de bien", dcc.Dropdown(id="estimate-property", options=PROPERTY_OPTIONS, value="Entire rental unit", clearable=False), "Les 12 catégories les plus fréquentes"),
                                                 field("Type de location", dcc.Dropdown(id="estimate-room", options=ROOM_OPTIONS, value="Entire home/apt", clearable=False)),
                                             ],
                                             className="form-grid",
                                         ),
-                                        html.Button("Estimer le prix par nuit", id="estimate-button", n_clicks=0),
+                                        html.Button("Estimer le prix par nuit", id="estimate-button", n_clicks=0, className="estimate-submit"),
                                     ],
                                     className="panel form-panel",
                                 ),
@@ -546,6 +809,15 @@ app.layout = html.Div(
                                         html.P("Prix estimé par nuit", className="result-label"),
                                         html.Div("—", id="estimate-value", className="result-value"),
                                         html.P("Modèle non disponible.", id="estimate-message", className="result-message"),
+                                        html.Div(
+                                            [
+                                                html.Div([html.Span("Revenu brut / an"), html.Strong("—", id="annual-revenue")]),
+                                                html.Div([html.Span("Prix de vente DVF"), html.Strong("—", id="sale-value")]),
+                                                html.Div([html.Span("Remboursement estimé"), html.Strong("—", id="payback-value")]),
+                                            ],
+                                            className="investment-summary",
+                                        ),
+                                        html.P("Prix de vente et surface médians de transactions comparables dans l’arrondissement.", id="investment-note", className="investment-note"),
                                         html.Div(
                                             [
                                                 html.Span("MODÈLE"),
@@ -563,6 +835,63 @@ app.layout = html.Div(
                     id="estimer",
                     className="section estimator-section",
                 ),
+                html.Section(
+                    [
+                        html.H2("Où investir avec mon budget ?", className="page-title"),
+                        html.Div(
+                            [
+                                field(
+                                    "Budget total",
+                                    dcc.Input(
+                                        id="investment-budget",
+                                        type="text",
+                                        inputMode="numeric",
+                                        value="400000",
+                                    ),
+                                    "Prix d’achat, notaire et ameublement inclus",
+                                ),
+                                html.Button(
+                                    "Comparer les investissements",
+                                    id="investment-button",
+                                    n_clicks=0,
+                                    className="investment-button",
+                                ),
+                                html.Div(id="investment-budget-summary", className="budget-summary"),
+                            ],
+                            className="budget-toolbar",
+                        ),
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        html.Div("Meilleurs rendements accessibles", className="panel-label"),
+                                        dcc.Graph(
+                                            id="investment-ranking",
+                                            config={"displayModeBar": False},
+                                            className="investment-chart",
+                                        ),
+                                    ],
+                                    className="panel",
+                                ),
+                                html.Div(
+                                    [
+                                        html.Div("Cinq premières options", className="panel-label"),
+                                        html.Div(id="investment-table", className="investment-table"),
+                                    ],
+                                    className="panel",
+                                ),
+                            ],
+                            className="investment-grid",
+                        ),
+                        html.P(
+                            "Rendement indicatif d’un logement entier géré directement. "
+                            "Financement, fiscalité et réglementation des locations de courte durée non inclus.",
+                            className="method-note",
+                        ),
+                    ],
+                    id="investir",
+                    className="section investment-section",
+                ),
             ]
         ),
     ]
@@ -574,6 +903,8 @@ app.layout = html.Div(
     Output("price-distribution", "figure"),
     Output("area-prices", "figure"),
     Output("price-correlations", "figure"),
+    Output("capacity-counts", "figure"),
+    Output("area-occupancy", "figure"),
     Output("correlation-label", "children"),
     Output("market-summary", "children"),
     Input("area-filter", "value"),
@@ -591,7 +922,11 @@ def update_market(areas, room_types, bedroom_range):
 
     if frame.empty:
         empty = blank_figure("Aucune annonce pour ces filtres")
-        return empty, empty, empty, empty, "Corrélation avec le prix", html.P("Élargissez les filtres pour retrouver des annonces.", className="empty-message")
+        return (
+            empty, empty, empty, empty, empty, empty,
+            "Corrélation avec le prix",
+            html.P("Élargissez les filtres pour retrouver des annonces.", className="empty-message"),
+        )
 
     median_price = frame["price_quote_price_per_night"].median()
     median_rating = frame["review_scores_rating"].median()
@@ -608,8 +943,82 @@ def update_market(areas, room_types, bedroom_range):
         correlation_label = "Corrélation avec le prix · sélection actuelle"
     return (
         market_map(frame), price_distribution(frame), area_prices(frame),
-        price_correlations(frame), correlation_label, summary,
+        price_correlations(frame), capacity_counts(frame), occupancy_by_area(frame),
+        correlation_label, summary,
     )
+
+
+@callback(Output("model-status", "children"), Input("model-check", "n_intervals"))
+def update_model_status(_interval):
+    if not MODEL_PATH.exists():
+        return "EN ATTENTE"
+    try:
+        bundle = load_model()
+    except Exception:
+        return "ERREUR"
+    if isinstance(bundle, dict) and bundle.get("name"):
+        return f"PRÊT · {bundle['name']}"
+    return "PRÊT"
+
+
+@callback(
+    Output("investment-ranking", "figure"),
+    Output("investment-budget-summary", "children"),
+    Output("investment-table", "children"),
+    Input("investment-button", "n_clicks"),
+    State("investment-budget", "value"),
+)
+def compare_investments(_clicks, budget_value):
+    try:
+        normalized = str(budget_value).replace(" ", "").replace("\u202f", "").replace("€", "").replace(",", ".")
+        budget = float(normalized)
+    except (TypeError, ValueError):
+        return blank_figure("Budget invalide"), "Saisissez un montant en euros.", ""
+    if not 50_000 <= budget <= 10_000_000:
+        return blank_figure("Budget hors limites"), "Budget accepté : 50 000 € à 10 000 000 €.", ""
+    try:
+        options = investment_options(budget)
+    except FileNotFoundError as error:
+        return blank_figure("Modèle indisponible"), str(error), ""
+    except Exception as error:
+        return blank_figure("Calcul impossible"), f"Erreur du modèle : {error}", ""
+    if options.empty:
+        return (
+            blank_figure("Aucun bien médian accessible avec ce budget"),
+            f"Aucune option comparable sous {budget:,.0f} €".replace(",", " "),
+            "",
+        )
+
+    euros = lambda value: f"{value:,.0f} €".replace(",", " ")
+    best = options.iloc[0]
+    summary = html.Div(
+        [
+            html.Strong(best["label"]),
+            html.Span(
+                f"{best['roi']:.2f} % net/an · {best['payback']:.1f} ans · "
+                f"{euros(best['total_cost'])} tout compris"
+            ),
+        ]
+    )
+    headings = ["Option", "Coût total", "Prix/nuit", "Gain net/an", "Rendement", "Retour"]
+    body = []
+    for row in options.head(5).itertuples():
+        body.append(
+            html.Tr(
+                [
+                    html.Th(row.label, scope="row"),
+                    html.Td(euros(row.total_cost)),
+                    html.Td(euros(row.nightly_price)),
+                    html.Td(euros(row.net_revenue)),
+                    html.Td(f"{row.roi:.2f} %"),
+                    html.Td(f"{row.payback:.1f} ans"),
+                ]
+            )
+        )
+    table = html.Table(
+        [html.Thead(html.Tr([html.Th(heading) for heading in headings])), html.Tbody(body)]
+    )
+    return investment_chart(options), summary, table
 
 
 @callback(
@@ -669,8 +1078,56 @@ def show_selected_location(area, location):
 
 
 @callback(
+    Output("estimate-guests", "value"),
+    Output("estimate-bedrooms", "value"),
+    Output("estimate-bathrooms", "value"),
+    Output("estimate-minimum", "value"),
+    Input("estimate-guests-minus", "n_clicks"),
+    Input("estimate-guests-plus", "n_clicks"),
+    Input("estimate-bedrooms-minus", "n_clicks"),
+    Input("estimate-bedrooms-plus", "n_clicks"),
+    Input("estimate-bathrooms-minus", "n_clicks"),
+    Input("estimate-bathrooms-plus", "n_clicks"),
+    Input("estimate-minimum-minus", "n_clicks"),
+    Input("estimate-minimum-plus", "n_clicks"),
+    State("estimate-guests", "value"),
+    State("estimate-bedrooms", "value"),
+    State("estimate-bathrooms", "value"),
+    State("estimate-minimum", "value"),
+    prevent_initial_call=True,
+)
+def step_estimate_fields(_gm, _gp, _rm, _rp, _bm, _bp, _mm, _mp, guests, bedrooms, bathrooms, minimum):
+    controls = {
+        "estimate-guests-minus": (0, -1, 1, 16),
+        "estimate-guests-plus": (0, 1, 1, 16),
+        "estimate-bedrooms-minus": (1, -1, 0, 10),
+        "estimate-bedrooms-plus": (1, 1, 0, 10),
+        "estimate-bathrooms-minus": (2, -0.5, 0.5, 10),
+        "estimate-bathrooms-plus": (2, 0.5, 0.5, 10),
+        "estimate-minimum-minus": (3, -1, 1, 365),
+        "estimate-minimum-plus": (3, 1, 1, 365),
+    }
+    values = [guests, bedrooms, bathrooms, minimum]
+    control = controls.get(ctx.triggered_id)
+    if control is None:
+        return values
+    index, change, minimum_value, maximum_value = control
+    try:
+        current = float(values[index])
+    except (TypeError, ValueError):
+        current = minimum_value
+    updated = round(min(maximum_value, max(minimum_value, current + change)), 10)
+    values[index] = int(updated) if float(change).is_integer() else updated
+    return values
+
+
+@callback(
     Output("estimate-value", "children"),
     Output("estimate-message", "children"),
+    Output("annual-revenue", "children"),
+    Output("sale-value", "children"),
+    Output("payback-value", "children"),
+    Output("investment-note", "children"),
     Input("estimate-button", "n_clicks"),
     State("estimate-area", "value"),
     State("estimate-guests", "value"),
@@ -685,17 +1142,26 @@ def show_selected_location(area, location):
 def estimate(_clicks, area, guests, bedrooms, bathrooms, minimum_nights, property_type, room_type, location):
     values = [area, guests, bedrooms, bathrooms, minimum_nights, property_type, room_type, location]
     if any(value is None for value in values):
-        return "—", "Complétez tous les champs avant de lancer l’estimation."
+        return "—", "Complétez tous les champs avant de lancer l’estimation.", "—", "—", "—", "Données insuffisantes."
+    try:
+        guests = int(guests)
+        bedrooms = int(bedrooms)
+        bathrooms = float(bathrooms)
+        minimum_nights = int(minimum_nights)
+    except (TypeError, ValueError):
+        return "—", "Saisissez uniquement des valeurs numériques valides.", "—", "—", "—", "Données invalides."
+    if not (1 <= guests <= 16 and 0 <= bedrooms <= 10 and 0.5 <= bathrooms <= 10 and 1 <= minimum_nights <= 365):
+        return "—", "Une valeur numérique dépasse les limites autorisées.", "—", "—", "—", "Données invalides."
 
     proximity = monument_proximity(location["latitude"], location["longitude"])
     features = {
         "arrondissement": int(area),
         "latitude": float(location["latitude"]),
         "longitude": float(location["longitude"]),
-        "accommodates": int(guests),
+        "accommodates": guests,
         "bedrooms": float(bedrooms),
-        "bathrooms": float(bathrooms),
-        "minimum_nights": int(minimum_nights),
+        "bathrooms": bathrooms,
+        "minimum_nights": minimum_nights,
         "property_type": property_type,
         "room_type": room_type,
         "nearest_monument_distance_km": proximity["nearest_monument_distance_km"],
@@ -704,9 +1170,9 @@ def estimate(_clicks, area, guests, bedrooms, bathrooms, minimum_nights, propert
     try:
         price = predict_price(features)
     except FileNotFoundError as error:
-        return "—", str(error)
+        return "—", str(error), "—", "—", "—", "Modèle indisponible."
     except Exception as error:
-        return "Erreur", f"Le modèle n’a pas pu calculer ce logement : {error}"
+        return "Erreur", f"Le modèle n’a pas pu calculer ce logement : {error}", "—", "—", "—", "Calcul impossible."
     euros = lambda value: f"{value:,.0f} €".replace(",", " ")
     message = f"par nuit · {AREA_NAMES[area]} · estimation du modèle"
     # Range saved with the model by modele_lineaire_enrichi/entrainement.py, when present.
@@ -715,7 +1181,20 @@ def estimate(_clicks, area, guests, bedrooms, bathrooms, minimum_nights, propert
     if factors:
         message += (f" · fourchette {euros(price * factors[0])} à {euros(price * factors[1])} "
                     f"({bundle.get('range_label', 'la moitié des logements comparables')})")
-    return euros(price), message
+    try:
+        investment = investment_metrics(area, bedrooms, price)
+        payback = f"{investment['payback']:.1f} ans" if np.isfinite(investment["payback"]) else "Non rentable"
+        note = (
+            f"Référence : {investment['sales']} ventes DVF, {investment['surface']:.0f} m² médians, "
+            f"{investment['bedrooms']} chambre(s), {investment['occupancy']:.0f} nuits occupées/an. "
+            "Remboursement indicatif avec notaire, ameublement et charges, hors financement et réglementation."
+        )
+        return (
+            euros(price), message, euros(investment["gross_revenue"]),
+            euros(investment["sale_price"]), payback, note,
+        )
+    except ValueError as error:
+        return euros(price), message, "—", "—", "—", str(error)
 
 
 if __name__ == "__main__":
