@@ -166,6 +166,7 @@ def train(name, make_model, features, folder):
     prices.to_csv(folder / 'resultats' / 'erreurs_prix.csv')
     revenue.to_csv(folder / 'resultats' / 'erreurs_revenu.csv')
     plot_quality(data, name, typical, mean * nights, folder / 'graphiques' / 'qualite_modele.png')
+    return bundle
 
 
 def plot_quality(data, name, typical, revenue, path):

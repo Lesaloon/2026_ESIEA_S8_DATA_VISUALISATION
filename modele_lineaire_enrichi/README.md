@@ -36,6 +36,12 @@ that uses the real price. It then trains both models on every listing and saves 
 same scikit-learn version). Outputs: `resultats/erreurs_prix.csv`,
 `resultats/erreurs_revenu.csv`, `graphiques/qualite_modele.png`.
 
+**Web app**: `entrainement.py` also writes the price model for `web/start.py` at `MODEL_PATH`
+(`web/model.pkl` by default, ignored by git), in the format of `web/README.md`, plus
+`price_range` (low and high multipliers by arrondissement) and `range_label`: the app shows
+the typical price and its range. Train with the same Python as the app (the project `.venv`):
+a pickled model needs the same scikit-learn version to load.
+
 `resultats.py` loads the saved models and estimates a standard studio, T2 and T3 in each
 arrondissement, under two management scenarios (assumptions at the top of
 `modelisation/revenu.py`):

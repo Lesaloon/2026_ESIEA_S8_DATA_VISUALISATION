@@ -707,7 +707,15 @@ def estimate(_clicks, area, guests, bedrooms, bathrooms, minimum_nights, propert
         return "—", str(error)
     except Exception as error:
         return "Erreur", f"Le modèle n’a pas pu calculer ce logement : {error}"
-    return f"{price:,.0f} €".replace(",", " "), f"par nuit · {AREA_NAMES[area]} · estimation du modèle"
+    euros = lambda value: f"{value:,.0f} €".replace(",", " ")
+    message = f"par nuit · {AREA_NAMES[area]} · estimation du modèle"
+    # Range saved with the model by modele_lineaire_enrichi/entrainement.py, when present.
+    bundle = load_model()
+    factors = bundle.get("price_range", {}).get(int(area)) if isinstance(bundle, dict) else None
+    if factors:
+        message += (f" · fourchette {euros(price * factors[0])} à {euros(price * factors[1])} "
+                    f"({bundle.get('range_label', 'la moitié des logements comparables')})")
+    return euros(price), message
 
 
 if __name__ == "__main__":
