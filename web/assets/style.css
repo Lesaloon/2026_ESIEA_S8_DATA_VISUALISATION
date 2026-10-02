@@ -64,7 +64,7 @@ a { color: inherit; }
 .estimator-section { border-top: 1px solid var(--ink); background: #e6eceb; }
 .estimator-grid { display: grid; grid-template-columns: 1.1fr 1.15fr .7fr; gap: 18px; align-items: stretch; }
 .location-panel, .form-panel { padding-bottom: 20px; }
-.location-map { height: 360px; border-bottom: 1px solid var(--line); }
+.location-map { height: 300px; margin-top: 18px; border-top: 1px solid var(--line); }
 .location-panel > .field { margin: 18px 20px 0; }
 .location-summary { display: grid; gap: 10px; margin: 16px 20px 0; padding-top: 16px; border-top: 1px solid var(--line); }
 .location-summary > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
@@ -73,14 +73,45 @@ a { color: inherit; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 20px 24px; }
 .field > input { width: 100%; height: 34px; padding: 0 9px; border: 1px solid #b7bdbb; border-radius: 3px; background: white; font: inherit; }
 .field > input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
-.form-panel button { width: calc(100% - 48px); margin: 5px 24px 0; padding: 15px 18px; border: 1px solid var(--ink); color: white; background: var(--ink); font: 600 13px "IBM Plex Sans", sans-serif; cursor: pointer; }
-.form-panel button:hover { background: var(--blue); }
+.number-control { display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; height: 34px; }
+.number-control input { width: 100%; min-width: 0; height: 34px; padding: 0 8px; border: solid #b7bdbb; border-width: 1px 0; border-radius: 0; color: var(--ink); background: white; font: inherit; text-align: center; appearance: textfield; }
+.number-control input::-webkit-inner-spin-button,
+.number-control input::-webkit-outer-spin-button { margin: 0; appearance: none; }
+.number-control button { margin: 0; padding: 0; border: 1px solid var(--ink); color: white; background: var(--ink); font: 600 16px "IBM Plex Sans", sans-serif; cursor: pointer; }
+.number-control button:first-child { border-radius: 3px 0 0 3px; }
+.number-control button:last-child { border-radius: 0 3px 3px 0; }
+.number-control button:hover { background: var(--blue); }
+.estimate-submit { width: calc(100% - 48px); margin: 5px 24px 0; padding: 15px 18px; border: 1px solid var(--ink); color: white; background: var(--ink); font: 600 13px "IBM Plex Sans", sans-serif; cursor: pointer; }
+.estimate-submit:hover { background: var(--blue); }
 .form-panel button:focus-visible, a:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
 .result-panel { display: flex; flex-direction: column; justify-content: center; min-height: 100%; padding: 34px; color: white; background: var(--blue); }
 .result-value { margin: 8px 0; font: 600 clamp(60px, 7vw, 104px)/.85 "Barlow Condensed", sans-serif; white-space: nowrap; }
 .result-message { min-height: 45px; color: #d8edef; line-height: 1.5; }
+.investment-summary { display: grid; gap: 10px; margin: 18px 0; padding: 18px 0; border: solid rgba(255,255,255,.35); border-width: 1px 0; }
+.investment-summary > div { display: flex; justify-content: space-between; gap: 18px; }
+.investment-summary span { color: #b9e0e4; font-size: 12px; }
+.investment-summary strong { text-align: right; }
+.investment-note { margin: 0 0 22px; color: #d8edef; font-size: 11px; line-height: 1.45; }
 .model-status { display: flex; justify-content: space-between; margin-top: auto; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.35); font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .08em; }
 .model-status strong { color: #ffd6cd; }
+
+.investment-section { border-top: 1px solid var(--ink); }
+.budget-toolbar { display: grid; grid-template-columns: minmax(220px, 320px) auto 1fr; gap: 18px; align-items: end; padding: 18px; border: 1px solid var(--ink); background: var(--panel); }
+.budget-toolbar .field > input { width: 100%; height: 34px; padding: 0 9px; border: 1px solid #b7bdbb; border-radius: 3px; font: inherit; }
+.investment-button { height: 34px; padding: 0 18px; border: 1px solid var(--ink); color: white; background: var(--ink); font-weight: 600; cursor: pointer; }
+.investment-button:hover { background: var(--blue); }
+.budget-summary > div { display: flex; flex-direction: column; gap: 4px; padding-bottom: 2px; }
+.budget-summary strong { font-size: 15px; }
+.budget-summary span { color: var(--muted); font-size: 12px; }
+.investment-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; margin-top: 18px; }
+.investment-chart { height: 470px; }
+.investment-table { overflow-x: auto; }
+.investment-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.investment-table th, .investment-table td { padding: 14px 12px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.investment-table th:first-child { text-align: left; }
+.investment-table thead th { color: var(--muted); font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .04em; text-transform: uppercase; }
+.investment-table tbody th { font-weight: 600; }
+.method-note { max-width: 900px; margin: 16px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
 /* Dash controls */
 .Select-control, .Select-menu-outer { border-color: #b7bdbb !important; }
@@ -124,13 +155,14 @@ a { color: inherit; }
   .map-panel { grid-row: auto; grid-column: 1 / -1; }
   .market-map { height: 560px; }
   .result-panel { grid-column: 1 / -1; min-height: 300px; }
+  .investment-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
   .topbar { grid-template-columns: 1fr auto; padding: 0 18px; }
   .topbar nav { gap: 16px; }
   .section { padding: 32px 18px 55px; }
-  .filter-bar, .market-summary, .dashboard-grid, .estimator-grid, .form-grid { grid-template-columns: 1fr; }
+  .filter-bar, .market-summary, .dashboard-grid, .estimator-grid, .form-grid, .budget-toolbar { grid-template-columns: 1fr; }
   .market-summary > div { border-right: 0; border-bottom: 1px solid var(--line); }
   .market-map { height: 480px; }
   .small-chart { height: 350px; }
