@@ -4,6 +4,8 @@ Each model folder only defines its nightly price features and its scikit-learn m
 adds the same nights-booked model to both (tested in occupation.py), trains them (5-fold error
 figures, then every listing), saves them, and turns them into results and charts.
 Annual revenue = mean predicted nightly price x predicted nights booked.
+Every estimate comes with a range: where half of the comparable listings fall, measured on the
+out-of-fold errors of each arrondissement (see predict_range()).
 """
 
 import joblib
@@ -37,6 +39,9 @@ SCENARIOS = ['Gestion seul', 'Conciergerie']
 MINIMUM_NIGHTS = 2
 CONCIERGERIE_FEE = 0.20
 
+# Ranges hold half of the comparable listings (quartiles); (0.1, 0.9) would hold 8 in 10, wider.
+RANGE = (0.25, 0.75)
+
 
 def load_listings():
     airbnb, sales, names = load_data()
@@ -65,6 +70,18 @@ def predict(bundle, frame, features):
 
 def predict_nights(bundle, frame):
     return bundle['nights_model'].predict(night_features(frame, bundle['types'])).clip(0, 365)
+
+
+def predict_range(bundle, frame, features):
+    """Low, typical and high nightly price: half of the comparable listings fall between low and high."""
+    typical, _ = predict(bundle, frame, features)
+    factors = bundle['price_range'].loc[frame['arrondissement']].to_numpy()
+    return typical * factors[:, 0], typical, typical * factors[:, 1]
+
+
+def ranges(actual, predicted, arrondissement):
+    """Multipliers around a prediction that hold RANGE of the real values, per arrondissement."""
+    return np.exp(np.log(actual / predicted).groupby(arrondissement).quantile(RANGE).unstack())
 
 
 def revenue_metrics(actual, predicted):
@@ -127,11 +144,19 @@ def train(name, make_model, features, folder):
                     f'{name} × nuits médianes (ancien calcul)': revenue_metrics(data[REVENUE], mean * median),
                     'Prix réel × nuits prévues': revenue_metrics(data[REVENUE], data[PRICE] * nights)})
 
+    # Ranges from out-of-fold errors: how far real values fall from predictions, per arrondissement.
+    price_range = ranges(data[PRICE], typical, data['arrondissement'])
+    revenue_range = ranges(data[REVENUE], mean * nights, data['arrondissement'])
+    print('\nFourchettes : la moitié des annonces comparables est entre « bas » et « haut » fois la prévision\n'
+          + pd.concat({'prix par nuit': price_range, 'revenu annuel': revenue_range}, axis=1)
+          .rename(columns={RANGE[0]: 'bas', RANGE[1]: 'haut'}).round(2).to_string())
+
     X, y = features(data, {'types': types}), np.log(data[PRICE])
     model = make_model().fit(X, y)
     bundle = {'name': name, 'model': model, 'duan': np.exp(y - model.predict(X)).mean(),
               'nights_model': nights_model().fit(night_features(data, types), data[NIGHTS]),
               'columns': list(X.columns), 'types': types,
+              'price_range': price_range, 'revenue_range': revenue_range,
               'scores': {'prix': prices.loc[name].to_dict(), 'revenu': revenue.loc[main].to_dict()},
               'sklearn': sklearn.__version__}
     for sub in ('modeles', 'resultats', 'graphiques'):
@@ -171,8 +196,8 @@ def report(features, folder):
     if not path.exists():
         raise SystemExit(f'Aucun modèle sauvegardé : lancer d’abord {folder.name}/entrainement.py')
     bundle = joblib.load(path)
-    if 'nights_model' not in bundle:
-        raise SystemExit(f'Modèle sauvegardé avant l’ajout du modèle de nuits : relancer {folder.name}/entrainement.py')
+    if 'price_range' not in bundle:
+        raise SystemExit(f'Modèle sauvegardé par une version précédente : relancer {folder.name}/entrainement.py')
     if bundle['sklearn'] != sklearn.__version__:
         print(f"Attention : modèle entraîné avec scikit-learn {bundle['sklearn']}, installé {sklearn.__version__} : "
               f'relancer {folder.name}/entrainement.py.')
@@ -216,6 +241,18 @@ def report(features, folder):
                  str(charts / f'annees_remboursement_{slug}.png'))
     plot_monuments(effect, name, charts / 'effet_monuments.png')
 
+    t2 = alone[alone['typology'] == 'T2'].set_index('label')
+    plot_range(t2, ['prix_bas', 'prix_nuit', 'prix_haut'], 1, '€', 'Prix par nuit (€)',
+               f'Quel prix pratiquer pour un T2 ? Estimation et fourchette · {name}',
+               f"T2 type ({guests['T2']:.0f} pers., 1 chambre) : prix typique et fourchette où se situent la moitié des logements\n"
+               'comparables, mesurée sur les erreurs de prévision de l’arrondissement. Devis de fin juin 2026 (haute saison).',
+               charts / 'fourchette_prix_t2.png')
+    plot_range(t2, ['revenu_bas', 'revenu', 'revenu_haut'], 1000, 'k€', 'Revenu annuel (k€)',
+               f'Combien rapporte un T2 par an ? Estimation et fourchette · {name}',
+               f"{descriptions['Gestion seul']} Fourchette : la moitié des logements comparables.\n"
+               'Elle est large : les nuits louées varient beaucoup d’un logement à l’autre.',
+               charts / 'fourchette_revenu_t2_gestion_seul.png')
+
 
 def by_area(flats, column):
     return flats.pivot(index='label', columns='typology', values=column)
@@ -231,6 +268,7 @@ def estimate(bundle, features, data, sales, names, listings):
     base['tourist_proximity_score'] = base['arrondissement'].map(
         data.groupby('arrondissement')['tourist_proximity_score'].median())
     base['prix_nuit'], base['prix_moyen'] = predict(bundle, base, features)
+    base['prix_bas'], _, base['prix_haut'] = predict_range(bundle, base, features)
     # Payback: same DVF purchase prices and cost assumptions as modelisation/regression.py.
     base = base.merge(purchase_prices(sales), on=['arrondissement', 'typology'])
     base['achat'] = base['price'] * (1 + NOTARY_FEES) + base['surface'] * FURNISHING_EUR_M2
@@ -240,10 +278,14 @@ def estimate(bundle, features, data, sales, names, listings):
         flats = base.assign(scenario=scenario, minimum_nights=MINIMUM_NIGHTS, **{HOST_LISTINGS: listings[scenario]})
         flats['nuits'] = predict_nights(bundle, flats)
         flats['revenu'] = flats['prix_moyen'] * flats['nuits']
+        low, high = bundle['revenue_range'].loc[flats['arrondissement']].to_numpy().T
+        flats['revenu_bas'], flats['revenu_haut'] = flats['revenu'] * low, flats['revenu'] * high
         fee = CONCIERGERIE_FEE if scenario == 'Conciergerie' else 0
-        flats['gain'] = (flats['revenu'] * (1 - AIRBNB_FEE - SUPPLIES - fee)
-                         - flats['surface'] * CHARGES_EUR_M2 - FIXED_EUR)
-        flats['annees'] = (flats['achat'] / flats['gain']).where(flats['gain'] > 0)
+        gain = lambda revenue: revenue * (1 - AIRBNB_FEE - SUPPLIES - fee) - flats['surface'] * CHARGES_EUR_M2 - FIXED_EUR
+        payback = lambda net: (flats['achat'] / net).where(net > 0)  # No payback if the flat loses money.
+        flats['gain'] = gain(flats['revenu'])
+        flats['annees'] = payback(flats['gain'])
+        flats['annees_min'], flats['annees_max'] = payback(gain(flats['revenu_haut'])), payback(gain(flats['revenu_bas']))
         scenarios.append(flats)
     return pd.concat(scenarios, ignore_index=True)
 
@@ -263,16 +305,54 @@ def monument_effect(bundle, features, data, flats):
 
 
 def save_tables(flats, path):
-    table = flats[['label', 'typology', 'scenario', 'prix_nuit', 'nuits', 'revenu', 'achat', 'gain', 'annees']].rename(
-        columns={'label': 'arrondissement', 'typology': 'logement', 'scenario': 'gestion', 'prix_nuit': 'prix par nuit (€)',
-                 'nuits': 'nuits louées par an', 'revenu': 'revenu annuel (€)', 'achat': 'achat total (€)',
-                 'gain': 'gain net annuel (€)', 'annees': 'années pour rembourser'}).round(0)
+    table = flats[['label', 'typology', 'scenario', 'prix_bas', 'prix_nuit', 'prix_haut', 'nuits', 'revenu_bas', 'revenu',
+                   'revenu_haut', 'achat', 'gain', 'annees_min', 'annees', 'annees_max']].rename(
+        columns={'label': 'arrondissement', 'typology': 'logement', 'scenario': 'gestion',
+                 'prix_bas': 'prix par nuit, bas (€)', 'prix_nuit': 'prix par nuit (€)', 'prix_haut': 'prix par nuit, haut (€)',
+                 'nuits': 'nuits louées par an', 'revenu_bas': 'revenu annuel, bas (€)', 'revenu': 'revenu annuel (€)',
+                 'revenu_haut': 'revenu annuel, haut (€)', 'achat': 'achat total (€)', 'gain': 'gain net annuel (€)',
+                 'annees_min': 'années pour rembourser, au mieux', 'annees': 'années pour rembourser',
+                 'annees_max': 'années pour rembourser, au pire'}).round(0)
     table.to_csv(path, index=False)
     t2 = table[table['logement'] == 'T2'].pivot(
         index='arrondissement', columns='gestion', values=['nuits louées par an', 'revenu annuel (€)', 'années pour rembourser'])
     print('\nT2 type selon la gestion, du plus rapide au plus lent à rembourser (gestion seul)\n'
           + t2.sort_values(('années pour rembourser', 'Gestion seul')).to_string())
-    print(f'Tableau complet (studio, T2, T3, deux gestions) : {path}')
+
+    alone = flats[(flats['typology'] == 'T2') & (flats['scenario'] == 'Gestion seul')].sort_values('annees')
+    span = lambda low, value, high, fmt, unit: [
+        f'{fmt(v)} {unit} ({fmt(l)} à {fmt(h)})' for l, v, h in zip(alone[low], alone[value], alone[high])]
+    euros, thousands = (lambda v: f'{v:.0f}'), (lambda v: f'{v / 1000:.1f}'.replace('.', ','))
+    years = lambda v: 'plus de 100' if pd.isna(v) or v > 100 else f'{v:.0f}'  # NaN: the flat loses money.
+    print('\nT2 type, gestion seul : estimation (et fourchette où se situe la moitié des logements comparables)\n'
+          + pd.DataFrame({'arrondissement': alone['label'],
+                          'prix par nuit': span('prix_bas', 'prix_nuit', 'prix_haut', euros, '€'),
+                          'revenu annuel': span('revenu_bas', 'revenu', 'revenu_haut', thousands, 'k€'),
+                          'années pour rembourser': span('annees_min', 'annees', 'annees_max', years, 'ans')})
+          .to_string(index=False))
+    print(f'Tableau complet (studio, T2, T3, deux gestions, fourchettes) : {path}')
+
+
+def plot_range(rows, columns, scale, unit, xlabel, title, subtitle, path):
+    """Estimate and range of the standard T2 in each arrondissement, range written on the right."""
+    low, value, high = (rows[column] / scale for column in columns)
+    order = value.sort_values().index
+    y = np.arange(len(order))
+    fig, ax = plt.subplots(figsize=(10, 8.5))
+    ax.hlines(y, low[order], high[order], color='#b7d3f6', linewidth=9, zorder=1,
+              label='Fourchette : la moitié des logements comparables')
+    ax.scatter(value[order], y, s=60, color=BLUE, edgecolor='white', linewidth=1.2, zorder=2, label='Estimation')
+    labels = ax.get_yaxis_transform()  # x in axes fraction, y in rows.
+    ax.text(1.02, len(order) - 0.2, 'Fourchette', transform=labels, fontweight='bold', color=INK)
+    digits = 0 if scale == 1 else 1
+    for row, a, b in zip(y, low[order], high[order]):
+        ax.text(1.02, row, f'{a:.{digits}f} à {b:.{digits}f} {unit}'.replace('.', ','), transform=labels,
+                va='center', color=INK)
+    ax.set_yticks(y, order)
+    ax.set_xlabel(xlabel, color=INK)
+    ax.legend(loc='lower left', bbox_to_anchor=(0, 1), ncols=2, frameon=False)
+    plain(ax, 'x')
+    finish(fig, title, subtitle, path)
 
 
 def plot_monuments(effect, name, path):

@@ -23,6 +23,12 @@ type) and its management (number of flats run by the host, minimum stay). Tested
 
 **Annual revenue** = mean predicted nightly price (Duan's correction) × predicted nights.
 
+**Ranges**: every estimate comes with the range where half of the comparable listings fall.
+It is measured on the out-of-fold errors of each arrondissement (central ones are wider) and
+saved with the model; `RANGE` at the top of `modelisation/revenu.py` sets the share (quartiles
+by default; `(0.1, 0.9)` would hold 8 listings in 10). For any flat,
+`revenu.predict_range(bundle, frame, features)` returns the low, typical and high nightly price.
+
 `entrainement.py` prints the price, nights and revenue errors by 5-fold cross-validation,
 next to the former calculation (median nights of the arrondissement) and to a reference
 that uses the real price. It then trains both models on every listing and saves them in
@@ -39,9 +45,10 @@ arrondissement, under two management scenarios (assumptions at the top of
   minimum, and a 20 % commission on the revenue taken from the net gain.
 
 It gives the typical nightly price, nights booked, annual revenue, years of net gain to pay
-back the purchase (DVF prices and cost assumptions of `modelisation/regression.py`), and the
-T2's revenue at a low and a high monument score of its own arrondissement.
+back the purchase (DVF prices and cost assumptions of `modelisation/regression.py`), each with
+its range, and the T2's revenue at a low and a high monument score of its own arrondissement.
 Outputs: `resultats/logements_types.csv` and, in `graphiques/`: `prix_par_nuit.png`,
+`fourchette_prix_t2.png`, `fourchette_revenu_t2_gestion_seul.png`,
 `revenu_annuel_gestion_seul.png`, `revenu_annuel_conciergerie.png`,
 `annees_remboursement_gestion_seul.png`, `annees_remboursement_conciergerie.png`,
 `effet_monuments.png`.
