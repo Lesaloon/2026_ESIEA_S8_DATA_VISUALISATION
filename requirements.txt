@@ -6,3 +6,5 @@ scikit-learn>=1.4
 jupyter>=1.0
 ipykernel>=6.29
 python-dotenv>=1.0
+dash>=3.2
+plotly>=6.0
